@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Square, RotateCcw } from "lucide-react";
@@ -128,69 +127,123 @@ const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
     setGameState(prev => ({ ...prev, isExecuting: true }));
     
     let currentState = { ...gameState };
-    let maxIterations = 1000;
+    let maxIterations = 100; // Reduced to prevent infinite loops
     let iterations = 0;
-    let currentLineIndex = 0;
     
     console.log('Starting code execution');
     
-    while (currentLineIndex < pseudocode.length && iterations < maxIterations) {
-      iterations++;
-      setCurrentLine(currentLineIndex);
+    // Execute each line of pseudocode sequentially
+    for (let lineIndex = 0; lineIndex < pseudocode.length && iterations < maxIterations; lineIndex++) {
+      setCurrentLine(lineIndex);
       
-      console.log(`Executing line ${currentLineIndex}: ${pseudocode[currentLineIndex]}`);
+      const line = pseudocode[lineIndex];
+      console.log(`Executing line ${lineIndex}: ${line}`);
       
-      const command = parseCommand(pseudocode[currentLineIndex]);
+      const command = parseCommand(line);
       
       if (command) {
         if (command.type === 'while') {
-          // Check while condition
-          if (checkCondition(command.condition || '', currentState)) {
-            console.log('While condition is true, continuing loop');
-            currentLineIndex++; // Move to next line inside while
-          } else {
-            console.log('While condition is false, exiting loop');
-            // Find the end of the while block or just exit
-            break;
+          // Handle while loop
+          const whileCondition = command.condition || '';
+          console.log(`While loop started with condition: ${whileCondition}`);
+          
+          while (checkCondition(whileCondition, currentState) && iterations < maxIterations) {
+            iterations++;
+            console.log(`While loop iteration ${iterations}`);
+            
+            // Execute commands inside the while loop (next lines with indentation)
+            for (let whileLineIndex = lineIndex + 1; whileLineIndex < pseudocode.length; whileLineIndex++) {
+              const whileLine = pseudocode[whileLineIndex];
+              
+              // Stop if we reach a line that's not indented (end of while block)
+              if (!whileLine.startsWith('  ') && whileLine.trim() !== '') {
+                break;
+              }
+              
+              if (whileLine.trim() === '') continue;
+              
+              setCurrentLine(whileLineIndex);
+              console.log(`Executing while loop line ${whileLineIndex}: ${whileLine}`);
+              
+              const whileCommand = parseCommand(whileLine);
+              
+              if (whileCommand) {
+                if (whileCommand.type === 'if') {
+                  // Handle if statement inside while
+                  if (checkCondition(whileCommand.condition || '', currentState)) {
+                    console.log('If condition true, executing next command');
+                    // Execute the next indented command
+                    const nextLineIndex = whileLineIndex + 1;
+                    if (nextLineIndex < pseudocode.length) {
+                      const nextLine = pseudocode[nextLineIndex];
+                      if (nextLine.startsWith('    ')) { // More indented = inside if
+                        setCurrentLine(nextLineIndex);
+                        const ifCommand = parseCommand(nextLine);
+                        if (ifCommand) {
+                          console.log(`Executing if command: ${ifCommand.type}`);
+                          currentState = executeCommand(ifCommand, currentState);
+                          setGameState(currentState);
+                          await new Promise(resolve => setTimeout(resolve, 800));
+                        }
+                        whileLineIndex++; // Skip the next line since we executed it
+                      }
+                    }
+                  }
+                } else {
+                  // Execute regular command
+                  console.log(`Executing while command: ${whileCommand.type}`);
+                  currentState = executeCommand(whileCommand, currentState);
+                  setGameState(currentState);
+                  await new Promise(resolve => setTimeout(resolve, 800));
+                }
+              }
+            }
+            
+            // Check if we should continue the while loop
+            if (!checkCondition(whileCondition, currentState)) {
+              console.log('While condition became false, exiting loop');
+              break;
+            }
           }
+          
+          // Skip to the end of the while block
+          let nextLineIndex = lineIndex + 1;
+          while (nextLineIndex < pseudocode.length && pseudocode[nextLineIndex].startsWith('  ')) {
+            nextLineIndex++;
+          }
+          lineIndex = nextLineIndex - 1; // -1 because the for loop will increment
+          
         } else if (command.type === 'if') {
-          // Check if condition
+          // Handle standalone if statement
           if (checkCondition(command.condition || '', currentState)) {
-            console.log('If condition is true, executing if block');
-            currentLineIndex++; // Move to next line inside if
-          } else {
-            console.log('If condition is false, skipping if block');
-            currentLineIndex++; // Skip to next line
+            console.log('If condition true, executing next command');
+            // Execute the next indented command
+            const nextLineIndex = lineIndex + 1;
+            if (nextLineIndex < pseudocode.length) {
+              const nextLine = pseudocode[nextLineIndex];
+              if (nextLine.startsWith('  ')) {
+                setCurrentLine(nextLineIndex);
+                const ifCommand = parseCommand(nextLine);
+                if (ifCommand) {
+                  console.log(`Executing if command: ${ifCommand.type}`);
+                  currentState = executeCommand(ifCommand, currentState);
+                  setGameState(currentState);
+                  await new Promise(resolve => setTimeout(resolve, 800));
+                }
+                lineIndex++; // Skip the next line since we executed it
+              }
+            }
           }
         } else {
           // Execute regular command
           console.log(`Executing command: ${command.type} ${command.direction || ''}`);
           currentState = executeCommand(command, currentState);
-          
-          // Update the actual game state
           setGameState(currentState);
-          
-          currentLineIndex++;
-        }
-      } else {
-        currentLineIndex++;
-      }
-      
-      // If we reach the end and have a while loop, restart from beginning
-      if (currentLineIndex >= pseudocode.length && pseudocode.some(line => line.trim().toLowerCase().includes('while'))) {
-        const whileLineIndex = pseudocode.findIndex(line => line.trim().toLowerCase().includes('while'));
-        const whileCommand = parseCommand(pseudocode[whileLineIndex]);
-        
-        if (whileCommand && checkCondition(whileCommand.condition || '', currentState)) {
-          console.log('Restarting while loop');
-          currentLineIndex = whileLineIndex;
-        } else {
-          console.log('While condition false, ending execution');
-          break;
+          await new Promise(resolve => setTimeout(resolve, 800));
         }
       }
       
-      await new Promise(resolve => setTimeout(resolve, 800));
+      iterations++;
     }
 
     setGameState(prev => ({ ...prev, isExecuting: false }));
