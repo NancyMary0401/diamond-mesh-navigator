@@ -1,9 +1,10 @@
-import React, { useState, useRef, DragEvent } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Square, RotateCcw, Trash2, GripVertical } from "lucide-react";
 import { GameState, Command } from "@/types/game";
 import { useToast } from "@/hooks/use-toast";
+import { motion } from "motion/react";
 
 interface DragDropEditorProps {
   pseudocode: string[];
@@ -53,9 +54,9 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
   const parseCommand = (block: CodeBlock): Command | null => {
     switch (block.type) {
       case 'move':
-        return { type: 'move', direction: block.direction as 'forward' | 'left' | 'right' };
+        return { type: 'move', direction: block.direction as 'forward' | 'backward' | 'left' | 'right' };
       case 'turn':
-        return { type: 'turn', direction: block.direction as 'forward' | 'left' | 'right' };
+        return { type: 'turn', direction: block.direction as 'left' | 'right' };
       case 'collect':
         return { type: 'collect' };
       case 'while':
@@ -301,18 +302,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
     }
   };
 
-  const handleDragStart = (e: DragEvent, block: CodeBlock) => {
-    setDraggedItem(block);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e: DragEvent, index: number) => {
-    e.preventDefault();
-    setDragOverIndex(index);
-  };
-
-  const handleDrop = (e: DragEvent, dropIndex: number) => {
-    e.preventDefault();
+  const handleMotionDrop = (event: any, info: any, dropIndex: number) => {
     if (!draggedItem) return;
 
     const dragIndex = codeBlocks.findIndex(block => block.id === draggedItem.id);
@@ -436,12 +426,10 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
       <div className="bg-slate-900 p-4 rounded-lg border border-slate-600 mb-4 min-h-[300px]">
         <div className="space-y-2">
           {codeBlocks.map((block, index) => (
-            <div
+            <motion.div
               key={block.id}
-              draggable
-              onDragStart={(e) => handleDragStart(e, block)}
-              onDragOver={(e) => handleDragOver(e, index)}
-              onDrop={(e) => handleDrop(e, index)}
+              drag
+              onDragEnd={(event, info) => handleMotionDrop(event, info, index)}
               className={`
                 flex items-center gap-2 p-3 rounded-lg border transition-all cursor-move
                 ${dragOverIndex === index ? 'border-blue-400 bg-blue-400/10' : 'border-slate-600 bg-slate-700/50'}
@@ -467,12 +455,12 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
                     value={block.direction} 
                     onValueChange={(value) => updateBlockDirection(block.id, value)}
                   >
-                    <SelectTrigger className="w-24 h-8 bg-slate-800 border-slate-600">
+                    <SelectTrigger className="w-24 h-8 bg-white border-gray-300 text-gray-900 shadow" >
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-600">
+                    <SelectContent className="bg-white border-gray-300">
                       {availableCommands.find(cmd => cmd.type === block.type)?.directions.map(dir => (
-                        <SelectItem key={dir} value={dir} className="text-white hover:bg-slate-700">
+                        <SelectItem key={dir} value={dir} className="text-gray-900 hover:bg-gray-100">
                           {dir}
                         </SelectItem>
                       ))}
@@ -485,12 +473,12 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
                     value={block.condition} 
                     onValueChange={(value) => updateBlockCondition(block.id, value)}
                   >
-                    <SelectTrigger className="w-32 h-8 bg-slate-800 border-slate-600">
+                    <SelectTrigger className="w-32 h-8 bg-white border-gray-300 text-gray-900 shadow">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-600">
+                    <SelectContent className="bg-white border-gray-300">
                       {availableCommands.find(cmd => cmd.type === block.type)?.conditions?.map(condition => (
-                        <SelectItem key={condition} value={condition} className="text-white hover:bg-slate-700">
+                        <SelectItem key={condition} value={condition} className="text-gray-900 hover:bg-gray-100">
                           {condition}
                         </SelectItem>
                       ))}
@@ -526,7 +514,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
                   <Trash2 className="w-3 h-3" />
                 </Button>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
