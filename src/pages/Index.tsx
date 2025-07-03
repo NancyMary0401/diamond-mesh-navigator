@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import GameBoard from "@/components/GameBoard";
-import PseudocodeEditor from "@/components/PseudocodeEditor";
+import DragDropEditor from "@/components/DragDropEditor";
 import { GameState, Position } from "@/types/game";
 
 const Index = () => {
@@ -20,11 +20,11 @@ const Index = () => {
   });
 
   const [pseudocode, setPseudocode] = useState([
-    "while gems remain",
-    "  move forward",
-    "  if gem found",
-    "    collect gem",
-    "  turn right"
+    "while off target",
+    "  if front is clear",
+    "    move forward",
+    "  else",
+    "    turn right"
   ]);
 
   return (
@@ -45,7 +45,7 @@ const Index = () => {
 
         <div className="grid lg:grid-cols-2 gap-8 items-start">
           <GameBoard gameState={gameState} setGameState={setGameState} />
-          <PseudocodeEditor 
+          <DragDropEditor 
             pseudocode={pseudocode}
             setPseudocode={setPseudocode}
             gameState={gameState}
