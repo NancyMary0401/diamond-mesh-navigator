@@ -57,79 +57,136 @@ const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
     return null;
   };
 
-  const executeCommand = (command: Command): boolean => {
-    setGameState(prev => {
-      const newState = { ...prev };
-      
-      switch (command.type) {
-        case 'move':
-          if (command.direction === 'forward') {
-            const directions = [
-              { x: 0, y: -1 }, // up
-              { x: 1, y: 0 },  // right
-              { x: 0, y: 1 },  // down
-              { x: -1, y: 0 }  // left
-            ];
-            const dir = directions[newState.playerDirection];
-            const newX = newState.playerPosition.x + dir.x;
-            const newY = newState.playerPosition.y + dir.y;
-            
-            if (newX >= 0 && newX < newState.gridSize && newY >= 0 && newY < newState.gridSize) {
-              newState.playerPosition = { x: newX, y: newY };
-            }
-          }
-          break;
-          
-        case 'turn':
-          if (command.direction === 'right') {
-            newState.playerDirection = (newState.playerDirection + 1) % 4;
-          } else if (command.direction === 'left') {
-            newState.playerDirection = (newState.playerDirection + 3) % 4;
-          }
-          break;
-          
-        case 'collect':
-          const gemIndex = newState.gems.findIndex(gem => 
-            gem.x === newState.playerPosition.x && gem.y === newState.playerPosition.y
-          );
-          if (gemIndex !== -1 && !newState.collectedGems.some(collected => 
-            collected.x === newState.playerPosition.x && collected.y === newState.playerPosition.y
-          )) {
-            newState.collectedGems = [...newState.collectedGems, newState.gems[gemIndex]];
-          }
-          break;
-      }
-      
-      return newState;
-    });
+  const executeCommand = (command: Command, currentState: GameState): GameState => {
+    const newState = { ...currentState };
     
-    return true;
+    switch (command.type) {
+      case 'move':
+        if (command.direction === 'forward') {
+          const directions = [
+            { x: 0, y: -1 }, // up (0)
+            { x: 1, y: 0 },  // right (1)
+            { x: 0, y: 1 },  // down (2)
+            { x: -1, y: 0 }  // left (3)
+          ];
+          const dir = directions[newState.playerDirection];
+          const newX = newState.playerPosition.x + dir.x;
+          const newY = newState.playerPosition.y + dir.y;
+          
+          if (newX >= 0 && newX < newState.gridSize && newY >= 0 && newY < newState.gridSize) {
+            newState.playerPosition = { x: newX, y: newY };
+          }
+        }
+        break;
+        
+      case 'turn':
+        if (command.direction === 'right') {
+          newState.playerDirection = (newState.playerDirection + 1) % 4;
+        } else if (command.direction === 'left') {
+          newState.playerDirection = (newState.playerDirection + 3) % 4;
+        }
+        break;
+        
+      case 'collect':
+        const gemIndex = newState.gems.findIndex(gem => 
+          gem.x === newState.playerPosition.x && gem.y === newState.playerPosition.y
+        );
+        if (gemIndex !== -1 && !newState.collectedGems.some(collected => 
+          collected.x === newState.playerPosition.x && collected.y === newState.playerPosition.y
+        )) {
+          newState.collectedGems = [...newState.collectedGems, newState.gems[gemIndex]];
+        }
+        break;
+    }
+    
+    return newState;
+  };
+
+  const checkCondition = (condition: string, currentState: GameState): boolean => {
+    if (condition.includes('gems remain')) {
+      const gemsLeft = currentState.gems.length - currentState.collectedGems.length;
+      console.log(`Checking gems remain: ${gemsLeft} gems left`);
+      return gemsLeft > 0;
+    }
+    if (condition.includes('gem found')) {
+      const gemAtPosition = currentState.gems.some(gem => 
+        gem.x === currentState.playerPosition.x && 
+        gem.y === currentState.playerPosition.y &&
+        !currentState.collectedGems.some(collected => 
+          collected.x === gem.x && collected.y === gem.y
+        )
+      );
+      console.log(`Checking gem found at (${currentState.playerPosition.x}, ${currentState.playerPosition.y}): ${gemAtPosition}`);
+      return gemAtPosition;
+    }
+    return false;
   };
 
   const executeCode = async () => {
     if (gameState.isExecuting) return;
     
     setGameState(prev => ({ ...prev, isExecuting: true }));
-    setCurrentLine(0);
-
-    let maxIterations = 100;
-    let iterations = 0;
     
-    for (let i = 0; i < pseudocode.length && iterations < maxIterations; i++) {
+    let currentState = { ...gameState };
+    let maxIterations = 1000;
+    let iterations = 0;
+    let currentLineIndex = 0;
+    
+    console.log('Starting code execution');
+    
+    while (currentLineIndex < pseudocode.length && iterations < maxIterations) {
       iterations++;
-      setCurrentLine(i);
+      setCurrentLine(currentLineIndex);
       
-      const command = parseCommand(pseudocode[i]);
+      console.log(`Executing line ${currentLineIndex}: ${pseudocode[currentLineIndex]}`);
+      
+      const command = parseCommand(pseudocode[currentLineIndex]);
+      
       if (command) {
-        if (command.type === 'while' && command.condition?.includes('gems remain')) {
-          // Check if gems remain
-          const gemsLeft = gameState.gems.length - gameState.collectedGems.length;
-          if (gemsLeft > 0) {
-            i = -1; // Restart loop
-            continue;
+        if (command.type === 'while') {
+          // Check while condition
+          if (checkCondition(command.condition || '', currentState)) {
+            console.log('While condition is true, continuing loop');
+            currentLineIndex++; // Move to next line inside while
+          } else {
+            console.log('While condition is false, exiting loop');
+            // Find the end of the while block or just exit
+            break;
+          }
+        } else if (command.type === 'if') {
+          // Check if condition
+          if (checkCondition(command.condition || '', currentState)) {
+            console.log('If condition is true, executing if block');
+            currentLineIndex++; // Move to next line inside if
+          } else {
+            console.log('If condition is false, skipping if block');
+            currentLineIndex++; // Skip to next line
           }
         } else {
-          executeCommand(command);
+          // Execute regular command
+          console.log(`Executing command: ${command.type} ${command.direction || ''}`);
+          currentState = executeCommand(command, currentState);
+          
+          // Update the actual game state
+          setGameState(currentState);
+          
+          currentLineIndex++;
+        }
+      } else {
+        currentLineIndex++;
+      }
+      
+      // If we reach the end and have a while loop, restart from beginning
+      if (currentLineIndex >= pseudocode.length && pseudocode.some(line => line.trim().toLowerCase().includes('while'))) {
+        const whileLineIndex = pseudocode.findIndex(line => line.trim().toLowerCase().includes('while'));
+        const whileCommand = parseCommand(pseudocode[whileLineIndex]);
+        
+        if (whileCommand && checkCondition(whileCommand.condition || '', currentState)) {
+          console.log('Restarting while loop');
+          currentLineIndex = whileLineIndex;
+        } else {
+          console.log('While condition false, ending execution');
+          break;
         }
       }
       
@@ -139,8 +196,11 @@ const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
     setGameState(prev => ({ ...prev, isExecuting: false }));
     setCurrentLine(-1);
     
+    console.log('Code execution finished');
+    
     // Check win condition
-    if (gameState.gems.length === gameState.collectedGems.length) {
+    const finalGemsLeft = currentState.gems.length - currentState.collectedGems.length;
+    if (finalGemsLeft === 0) {
       toast({
         title: "Congratulations!",
         description: "You collected all the gems!",
@@ -250,6 +310,14 @@ const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
             className="text-green-400 border-green-400/30 col-span-2"
           >
             while gems remain
+          </Button>
+          <Button
+            onClick={() => addCommand("if gem found")}
+            variant="outline"
+            size="sm"
+            className="text-green-400 border-green-400/30 col-span-2"
+          >
+            if gem found
           </Button>
         </div>
       </div>
