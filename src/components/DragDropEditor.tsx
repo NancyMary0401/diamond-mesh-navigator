@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -28,7 +27,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
   setGameState
 }) => {
   const [codeBlocks, setCodeBlocks] = useState<CodeBlock[]>([
-    { id: '1', type: 'while', condition: 'off target', indentLevel: 0 },
+    { id: '1', type: 'while', condition: 'gems remain', indentLevel: 0 },
     { id: '2', type: 'if', condition: 'front is clear', indentLevel: 1 },
     { id: '3', type: 'move', direction: 'forward', indentLevel: 2 },
     { id: '4', type: 'else', indentLevel: 1 },
@@ -46,10 +45,261 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
     { type: 'move', label: 'move', directions: ['forward', 'backward'] },
     { type: 'turn', label: 'turn', directions: ['right', 'left'] },
     { type: 'collect', label: 'collect', directions: [] },
-    { type: 'while', label: 'while', conditions: ['off target', 'gems remain'] },
+    { type: 'while', label: 'while', conditions: ['gems remain', 'off target'] },
     { type: 'if', label: 'if', conditions: ['front is clear', 'gem found'] },
     { type: 'else', label: 'else', directions: [] }
   ];
+
+  const parseCommand = (block: CodeBlock): Command | null => {
+    switch (block.type) {
+      case 'move':
+        return { type: 'move', direction: block.direction as 'forward' | 'left' | 'right' };
+      case 'turn':
+        return { type: 'turn', direction: block.direction as 'forward' | 'left' | 'right' };
+      case 'collect':
+        return { type: 'collect' };
+      case 'while':
+        return { type: 'while', condition: block.condition };
+      case 'if':
+        return { type: 'if', condition: block.condition };
+      default:
+        return null;
+    }
+  };
+
+  const executeCommand = (command: Command, currentState: GameState): GameState => {
+    const newState = { ...currentState };
+    
+    switch (command.type) {
+      case 'move':
+        if (command.direction === 'forward') {
+          const directions = [
+            { x: 0, y: -1 }, // up (0)
+            { x: 1, y: 0 },  // right (1)
+            { x: 0, y: 1 },  // down (2)
+            { x: -1, y: 0 }  // left (3)
+          ];
+          const dir = directions[newState.playerDirection];
+          const newX = newState.playerPosition.x + dir.x;
+          const newY = newState.playerPosition.y + dir.y;
+          
+          if (newX >= 0 && newX < newState.gridSize && newY >= 0 && newY < newState.gridSize) {
+            newState.playerPosition = { x: newX, y: newY };
+          }
+        } else if (command.direction === 'backward') {
+          const directions = [
+            { x: 0, y: 1 },  // up -> down
+            { x: -1, y: 0 }, // right -> left
+            { x: 0, y: -1 }, // down -> up
+            { x: 1, y: 0 }   // left -> right
+          ];
+          const dir = directions[newState.playerDirection];
+          const newX = newState.playerPosition.x + dir.x;
+          const newY = newState.playerPosition.y + dir.y;
+          
+          if (newX >= 0 && newX < newState.gridSize && newY >= 0 && newY < newState.gridSize) {
+            newState.playerPosition = { x: newX, y: newY };
+          }
+        }
+        break;
+        
+      case 'turn':
+        if (command.direction === 'right') {
+          newState.playerDirection = (newState.playerDirection + 1) % 4;
+        } else if (command.direction === 'left') {
+          newState.playerDirection = (newState.playerDirection + 3) % 4;
+        }
+        break;
+        
+      case 'collect':
+        const gemIndex = newState.gems.findIndex(gem => 
+          gem.x === newState.playerPosition.x && gem.y === newState.playerPosition.y
+        );
+        if (gemIndex !== -1 && !newState.collectedGems.some(collected => 
+          collected.x === newState.playerPosition.x && collected.y === newState.playerPosition.y
+        )) {
+          newState.collectedGems = [...newState.collectedGems, newState.gems[gemIndex]];
+        }
+        break;
+    }
+    
+    return newState;
+  };
+
+  const checkCondition = (condition: string, currentState: GameState): boolean => {
+    if (condition?.includes('gems remain')) {
+      const gemsLeft = currentState.gems.length - currentState.collectedGems.length;
+      console.log(`Checking gems remain: ${gemsLeft} gems left`);
+      return gemsLeft > 0;
+    }
+    if (condition?.includes('gem found')) {
+      const gemAtPosition = currentState.gems.some(gem => 
+        gem.x === currentState.playerPosition.x && 
+        gem.y === currentState.playerPosition.y &&
+        !currentState.collectedGems.some(collected => 
+          collected.x === gem.x && collected.y === gem.y
+        )
+      );
+      console.log(`Checking gem found at (${currentState.playerPosition.x}, ${currentState.playerPosition.y}): ${gemAtPosition}`);
+      return gemAtPosition;
+    }
+    if (condition?.includes('front is clear')) {
+      const directions = [
+        { x: 0, y: -1 }, // up
+        { x: 1, y: 0 },  // right
+        { x: 0, y: 1 },  // down
+        { x: -1, y: 0 }  // left
+      ];
+      const dir = directions[currentState.playerDirection];
+      const frontX = currentState.playerPosition.x + dir.x;
+      const frontY = currentState.playerPosition.y + dir.y;
+      
+      const frontIsClear = frontX >= 0 && frontX < currentState.gridSize && 
+                          frontY >= 0 && frontY < currentState.gridSize;
+      console.log(`Checking front is clear: ${frontIsClear}`);
+      return frontIsClear;
+    }
+    return false;
+  };
+
+  const executeCode = async () => {
+    if (gameState.isExecuting) return;
+    
+    setGameState(prev => ({ ...prev, isExecuting: true }));
+    
+    let currentState = { ...gameState };
+    let maxIterations = 100;
+    let iterations = 0;
+    
+    console.log('Starting code execution');
+    
+    for (let blockIndex = 0; blockIndex < codeBlocks.length && iterations < maxIterations; blockIndex++) {
+      setCurrentLine(blockIndex);
+      
+      const block = codeBlocks[blockIndex];
+      console.log(`Executing block ${blockIndex}:`, block);
+      
+      const command = parseCommand(block);
+      
+      if (command) {
+        if (command.type === 'while') {
+          const whileCondition = command.condition || '';
+          console.log(`While loop started with condition: ${whileCondition}`);
+          
+          while (checkCondition(whileCondition, currentState) && iterations < maxIterations) {
+            iterations++;
+            console.log(`While loop iteration ${iterations}`);
+            
+            for (let whileBlockIndex = blockIndex + 1; whileBlockIndex < codeBlocks.length; whileBlockIndex++) {
+              const whileBlock = codeBlocks[whileBlockIndex];
+              
+              if (whileBlock.indentLevel <= block.indentLevel) {
+                break;
+              }
+              
+              setCurrentLine(whileBlockIndex);
+              console.log(`Executing while loop block ${whileBlockIndex}:`, whileBlock);
+              
+              const whileCommand = parseCommand(whileBlock);
+              
+              if (whileCommand) {
+                if (whileCommand.type === 'if') {
+                  if (checkCondition(whileCommand.condition || '', currentState)) {
+                    console.log('If condition true, executing next command');
+                    const nextBlockIndex = whileBlockIndex + 1;
+                    if (nextBlockIndex < codeBlocks.length && codeBlocks[nextBlockIndex].indentLevel > whileBlock.indentLevel) {
+                      setCurrentLine(nextBlockIndex);
+                      const ifCommand = parseCommand(codeBlocks[nextBlockIndex]);
+                      if (ifCommand) {
+                        console.log(`Executing if command:`, ifCommand);
+                        currentState = executeCommand(ifCommand, currentState);
+                        setGameState(currentState);
+                        await new Promise(resolve => setTimeout(resolve, 800));
+                      }
+                      whileBlockIndex++;
+                    }
+                  } else {
+                    // Skip to else block if it exists
+                    let elseBlockIndex = whileBlockIndex + 1;
+                    while (elseBlockIndex < codeBlocks.length && codeBlocks[elseBlockIndex].indentLevel > whileBlock.indentLevel) {
+                      elseBlockIndex++;
+                    }
+                    if (elseBlockIndex < codeBlocks.length && codeBlocks[elseBlockIndex].type === 'else') {
+                      const nextElseBlockIndex = elseBlockIndex + 1;
+                      if (nextElseBlockIndex < codeBlocks.length && codeBlocks[nextElseBlockIndex].indentLevel > codeBlocks[elseBlockIndex].indentLevel) {
+                        setCurrentLine(nextElseBlockIndex);
+                        const elseCommand = parseCommand(codeBlocks[nextElseBlockIndex]);
+                        if (elseCommand) {
+                          console.log(`Executing else command:`, elseCommand);
+                          currentState = executeCommand(elseCommand, currentState);
+                          setGameState(currentState);
+                          await new Promise(resolve => setTimeout(resolve, 800));
+                        }
+                      }
+                      whileBlockIndex = elseBlockIndex + 1;
+                    }
+                  }
+                } else {
+                  console.log(`Executing while command:`, whileCommand);
+                  currentState = executeCommand(whileCommand, currentState);
+                  setGameState(currentState);
+                  await new Promise(resolve => setTimeout(resolve, 800));
+                }
+              }
+            }
+            
+            if (!checkCondition(whileCondition, currentState)) {
+              console.log('While condition became false, exiting loop');
+              break;
+            }
+          }
+          
+          let nextBlockIndex = blockIndex + 1;
+          while (nextBlockIndex < codeBlocks.length && codeBlocks[nextBlockIndex].indentLevel > block.indentLevel) {
+            nextBlockIndex++;
+          }
+          blockIndex = nextBlockIndex - 1;
+          
+        } else if (command.type === 'if') {
+          if (checkCondition(command.condition || '', currentState)) {
+            console.log('If condition true, executing next command');
+            const nextBlockIndex = blockIndex + 1;
+            if (nextBlockIndex < codeBlocks.length && codeBlocks[nextBlockIndex].indentLevel > block.indentLevel) {
+              setCurrentLine(nextBlockIndex);
+              const ifCommand = parseCommand(codeBlocks[nextBlockIndex]);
+              if (ifCommand) {
+                console.log(`Executing if command:`, ifCommand);
+                currentState = executeCommand(ifCommand, currentState);
+                setGameState(currentState);
+                await new Promise(resolve => setTimeout(resolve, 800));
+              }
+              blockIndex++;
+            }
+          }
+        } else {
+          console.log(`Executing command:`, command);
+          currentState = executeCommand(command, currentState);
+          setGameState(currentState);
+          await new Promise(resolve => setTimeout(resolve, 800));
+        }
+      }
+      
+      iterations++;
+    }
+
+    setGameState(prev => ({ ...prev, isExecuting: false }));
+    setCurrentLine(-1);
+    
+    console.log('Code execution finished');
+    
+    const finalGemsLeft = currentState.gems.length - currentState.collectedGems.length;
+    if (finalGemsLeft === 0) {
+      toast({
+        title: "Congratulations!",
+        description: "You collected all the gems!",
+      });
+    }
+  };
 
   const handleDragStart = (e: DragEvent, block: CodeBlock) => {
     setDraggedItem(block);
@@ -68,10 +318,8 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
     const dragIndex = codeBlocks.findIndex(block => block.id === draggedItem.id);
     const newBlocks = [...codeBlocks];
     
-    // Remove the dragged item
     newBlocks.splice(dragIndex, 1);
     
-    // Insert at new position
     const adjustedDropIndex = dragIndex < dropIndex ? dropIndex - 1 : dropIndex;
     newBlocks.splice(adjustedDropIndex, 0, draggedItem);
     
@@ -79,7 +327,6 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
     setDraggedItem(null);
     setDragOverIndex(null);
     
-    // Update pseudocode
     updatePseudocode(newBlocks);
   };
 
@@ -112,7 +359,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
       type: commandType as any,
       indentLevel: 0,
       direction: commandType === 'move' ? 'forward' : commandType === 'turn' ? 'right' : undefined,
-      condition: commandType === 'while' ? 'off target' : commandType === 'if' ? 'front is clear' : undefined
+      condition: commandType === 'while' ? 'gems remain' : commandType === 'if' ? 'front is clear' : undefined
     };
     
     const newBlocks = [...codeBlocks, newBlock];
@@ -167,7 +414,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
         <h2 className="text-xl font-bold text-white">Visual Programming</h2>
         <div className="flex gap-2">
           <Button
-            onClick={() => {/* Execute logic will be implemented */}}
+            onClick={executeCode}
             disabled={gameState.isExecuting}
             className="bg-green-600 hover:bg-green-700"
             size="sm"
@@ -186,7 +433,6 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
         </div>
       </div>
 
-      {/* Code Blocks Area */}
       <div className="bg-slate-900 p-4 rounded-lg border border-slate-600 mb-4 min-h-[300px]">
         <div className="space-y-2">
           {codeBlocks.map((block, index) => (
@@ -285,7 +531,6 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
         </div>
       </div>
 
-      {/* Available Commands */}
       <div className="space-y-2">
         <h3 className="text-sm font-medium text-purple-200">Available Commands:</h3>
         <div className="grid grid-cols-3 gap-2">
