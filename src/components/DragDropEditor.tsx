@@ -42,8 +42,10 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
 
   const dragRef = useRef<HTMLDivElement>(null);
 
+  const [draggedCommand, setDraggedCommand] = useState<string | null>(null);
+
   const availableCommands = [
-    { type: 'move', label: 'move', directions: ['forward', 'backward'] },
+    { type: 'move', label: 'move', directions: ['forward'] },
     { type: 'turn', label: 'turn', directions: ['right', 'left'] },
     { type: 'collect', label: 'collect', directions: [] },
     { type: 'while', label: 'while', conditions: ['gems remain', 'off target'] },
@@ -54,7 +56,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
   const parseCommand = (block: CodeBlock): Command | null => {
     switch (block.type) {
       case 'move':
-        return { type: 'move', direction: block.direction as 'forward' | 'backward' | 'left' | 'right' };
+        return { type: 'move', direction: block.direction as 'forward' };
       case 'turn':
         return { type: 'turn', direction: block.direction as 'left' | 'right' };
       case 'collect':
@@ -79,20 +81,6 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
             { x: 1, y: 0 },  // right (1)
             { x: 0, y: 1 },  // down (2)
             { x: -1, y: 0 }  // left (3)
-          ];
-          const dir = directions[newState.playerDirection];
-          const newX = newState.playerPosition.x + dir.x;
-          const newY = newState.playerPosition.y + dir.y;
-          
-          if (newX >= 0 && newX < newState.gridSize && newY >= 0 && newY < newState.gridSize) {
-            newState.playerPosition = { x: newX, y: newY };
-          }
-        } else if (command.direction === 'backward') {
-          const directions = [
-            { x: 0, y: 1 },  // up -> down
-            { x: -1, y: 0 }, // right -> left
-            { x: 0, y: -1 }, // down -> up
-            { x: 1, y: 0 }   // left -> right
           ];
           const dir = directions[newState.playerDirection];
           const newX = newState.playerPosition.x + dir.x;
@@ -423,7 +411,21 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
         </div>
       </div>
 
-      <div className="bg-slate-900 p-4 rounded-lg border border-slate-600 mb-4 min-h-[300px]">
+      <div
+        className={`bg-slate-900 p-4 rounded-lg border border-slate-600 mb-4 min-h-[300px] transition-all ${draggedCommand ? 'ring-2 ring-blue-400' : ''}`}
+        onDragOver={e => {
+          if (draggedCommand) e.preventDefault();
+        }}
+        onDrop={e => {
+          if (draggedCommand) {
+            addCommand(draggedCommand);
+            setDraggedCommand(null);
+          }
+        }}
+        onDragLeave={e => {
+          if (draggedCommand) setDraggedCommand(null);
+        }}
+      >
         <div className="space-y-2">
           {codeBlocks.map((block, index) => (
             <motion.div
@@ -517,25 +519,33 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
             </motion.div>
           ))}
         </div>
+        {draggedCommand && (
+          <div className="mt-4 p-2 text-center text-blue-400 bg-blue-400/10 rounded border border-blue-400/30">
+            Drop here to add <b>{draggedCommand}</b>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
         <h3 className="text-sm font-medium text-purple-200">Available Commands:</h3>
         <div className="grid grid-cols-3 gap-2">
           {availableCommands.map((command) => (
-            <Button
+            <motion.div
               key={command.type}
-              onClick={() => addCommand(command.type)}
-              variant="outline"
-              size="sm"
+              draggable
+              onDragStart={() => setDraggedCommand(command.type)}
+              onDragEnd={() => setDraggedCommand(null)}
               className={`
+                flex items-center justify-center px-3 py-2 rounded border cursor-grab select-none transition
                 ${command.type === 'while' || command.type === 'if' || command.type === 'else' ? 'text-green-400 border-green-400/30' : ''}
                 ${command.type === 'move' || command.type === 'turn' ? 'text-blue-400 border-blue-400/30' : ''}
                 ${command.type === 'collect' ? 'text-purple-400 border-purple-400/30' : ''}
+                bg-slate-700 hover:bg-slate-600 active:bg-slate-800
               `}
+              style={{ userSelect: 'none' }}
             >
               {command.label}
-            </Button>
+            </motion.div>
           ))}
         </div>
       </div>
