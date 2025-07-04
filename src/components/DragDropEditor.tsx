@@ -1,10 +1,10 @@
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Square, RotateCcw, Trash2, GripVertical } from "lucide-react";
+import { Play, Square, RotateCcw, Trash2, GripVertical, Trophy, Star, Sparkles } from "lucide-react";
 import { GameState, Command } from "@/types/game";
 import { useToast } from "@/hooks/use-toast";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 
 interface DragDropEditorProps {
   pseudocode: string[];
@@ -38,11 +38,12 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
   const [draggedItem, setDraggedItem] = useState<CodeBlock | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [currentLine, setCurrentLine] = useState(-1);
+  const [draggedCommand, setDraggedCommand] = useState<string | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [confetti, setConfetti] = useState<Array<{id: number, x: number, y: number, color: string}>>([]);
   const { toast } = useToast();
 
   const dragRef = useRef<HTMLDivElement>(null);
-
-  const [draggedCommand, setDraggedCommand] = useState<string | null>(null);
 
   const availableCommands = [
     { type: 'move', label: 'move', directions: ['forward'] },
@@ -149,6 +150,28 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
       return frontIsClear;
     }
     return false;
+  };
+
+  const createConfetti = () => {
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
+    const newConfetti = Array.from({ length: 50 }, (_, i) => ({
+      id: i,
+      x: Math.random() * window.innerWidth,
+      y: -20,
+      color: colors[Math.floor(Math.random() * colors.length)]
+    }));
+    setConfetti(newConfetti);
+  };
+
+  const triggerCelebration = () => {
+    setShowCelebration(true);
+    createConfetti();
+    
+    // Auto-hide celebration after 5 seconds
+    setTimeout(() => {
+      setShowCelebration(false);
+      setConfetti([]);
+    }, 5000);
   };
 
   const executeCode = async () => {
@@ -283,10 +306,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
     
     const finalGemsLeft = currentState.gems.length - currentState.collectedGems.length;
     if (finalGemsLeft === 0) {
-      toast({
-        title: "Congratulations!",
-        description: "You collected all the gems!",
-      });
+      triggerCelebration();
     }
   };
 
@@ -387,7 +407,145 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
   };
 
   return (
-    <div className="bg-slate-800 p-6 rounded-2xl shadow-2xl border border-purple-500/30">
+    <div className="bg-slate-800 p-6 rounded-2xl shadow-2xl border border-purple-500/30 relative overflow-hidden">
+      {/* Confetti Animation */}
+      <AnimatePresence>
+        {confetti.map((piece) => (
+          <motion.div
+            key={piece.id}
+            initial={{ x: piece.x, y: piece.y, rotate: 0, scale: 1 }}
+            animate={{ 
+              y: window.innerHeight + 100, 
+              x: piece.x + (Math.random() - 0.5) * 200,
+              rotate: 360,
+              scale: 0
+            }}
+            transition={{ 
+              duration: 3 + Math.random() * 2,
+              ease: "easeOut"
+            }}
+            className="absolute pointer-events-none z-50"
+            style={{ left: piece.x, top: piece.y }}
+          >
+            <div 
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: piece.color }}
+            />
+          </motion.div>
+        ))}
+      </AnimatePresence>
+
+      {/* Celebration Modal */}
+      <AnimatePresence>
+        {showCelebration && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+            onClick={() => setShowCelebration(false)}
+          >
+            <motion.div
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              className="bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 p-8 rounded-3xl text-center shadow-2xl border-4 border-yellow-300"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <motion.div
+                animate={{ 
+                  rotate: [0, -10, 10, -10, 0],
+                  scale: [1, 1.1, 1]
+                }}
+                transition={{ 
+                  duration: 0.5,
+                  repeat: Infinity,
+                  repeatDelay: 1
+                }}
+                className="mb-4"
+              >
+                <Trophy className="w-16 h-16 text-yellow-200 mx-auto" />
+              </motion.div>
+              
+              <motion.h2
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-3xl font-bold text-white mb-2"
+              >
+                🎉 CONGRATULATIONS! 🎉
+              </motion.h2>
+              
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="text-xl text-yellow-100 mb-6"
+              >
+                You collected all the gems! You're a programming master!
+              </motion.p>
+              
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="flex justify-center gap-4"
+              >
+                <motion.div
+                  animate={{ 
+                    rotate: [0, 360],
+                    scale: [1, 1.2, 1]
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "linear"
+                  }}
+                >
+                  <Star className="w-8 h-8 text-yellow-200" />
+                </motion.div>
+                <motion.div
+                  animate={{ 
+                    rotate: [0, -360],
+                    scale: [1, 1.2, 1]
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "linear"
+                  }}
+                >
+                  <Sparkles className="w-8 h-8 text-yellow-200" />
+                </motion.div>
+                <motion.div
+                  animate={{ 
+                    rotate: [0, 360],
+                    scale: [1, 1.2, 1]
+                  }}
+                  transition={{ 
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "linear"
+                  }}
+                >
+                  <Star className="w-8 h-8 text-yellow-200" />
+                </motion.div>
+              </motion.div>
+              
+              <motion.button
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                onClick={() => setShowCelebration(false)}
+                className="mt-6 px-6 py-3 bg-white text-orange-600 font-bold rounded-full hover:bg-yellow-100 transition-colors"
+              >
+                Continue Playing!
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold text-white">Visual Programming</h2>
         <div className="flex gap-2">
