@@ -174,54 +174,84 @@ export const useKeyboardMapping = ({
     // Clear the last pressed key after a short delay
     setTimeout(() => setLastPressedKey(undefined), 500);
     
+    // Handle mapping mode first
+    if (isMappingMode && pendingAction) {
+      event.preventDefault();
+      
+      // Check if the key is already mapped to a different action
+      const existingAction = config.mappings[key];
+      if (existingAction && existingAction !== pendingAction) {
+        // Remove the existing mapping first
+        setConfig(prev => {
+          const newMappings = { ...prev.mappings };
+          delete newMappings[key];
+          return {
+            ...prev,
+            mappings: newMappings
+          };
+        });
+      }
+      
+      // Add the new mapping
+      setConfig(prev => {
+        const newMappings = { ...prev.mappings };
+        
+        // Remove any existing mapping for this action (both default and custom)
+        const defaultKey = Object.entries(defaultMappings).find(([_, action]) => action === pendingAction)?.[0];
+        if (defaultKey && newMappings[defaultKey] === pendingAction) {
+          delete newMappings[defaultKey];
+        }
+        
+        // Remove any other custom mapping for this action
+        Object.keys(newMappings).forEach(mappedKey => {
+          if (newMappings[mappedKey] === pendingAction) {
+            delete newMappings[mappedKey];
+          }
+        });
+        
+        // Add the new mapping
+        newMappings[key] = pendingAction;
+        
+        return {
+          ...prev,
+          mappings: newMappings
+        };
+      });
+      setPendingAction(null);
+      setIsMappingMode(false);
+      return;
+    }
+    
     const action = config.mappings[key];
 
     if (action) {
       event.preventDefault();
       
-      if (isMappingMode && pendingAction) {
-        // Update mapping
-        setConfig(prev => ({
-          ...prev,
-          mappings: {
-            ...prev.mappings,
-            [key]: pendingAction
-          }
-        }));
-        setPendingAction(null);
-        setIsMappingMode(false);
-        return;
-      }
-
       // Execute action based on the action type
       switch (action) {
         case 'moveForward':
           if (onAddCommand) {
             onAddCommand('move');
-          } else {
-            handleMoveForward();
           }
+          handleMoveForward();
           break;
         case 'turnLeft':
           if (onAddCommand) {
             onAddCommand('turn-left');
-          } else {
-            handleTurnLeft();
           }
+          handleTurnLeft();
           break;
         case 'turnRight':
           if (onAddCommand) {
             onAddCommand('turn-right');
-          } else {
-            handleTurnRight();
           }
+          handleTurnRight();
           break;
         case 'collectGem':
           if (onAddCommand) {
             onAddCommand('collect');
-          } else {
-            handleCollectGem();
           }
+          handleCollectGem();
           break;
         case 'whileLoop':
           if (onAddCommand) {

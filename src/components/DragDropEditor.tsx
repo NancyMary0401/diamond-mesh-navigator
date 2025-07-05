@@ -65,7 +65,6 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
   const [draggedItem, setDraggedItem] = useState<CodeBlock | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [currentLine, setCurrentLine] = useState(-1);
-  const [draggedCommand, setDraggedCommand] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [confetti, setConfetti] = useState<Array<{id: number, x: number, y: number, color: string}>>([]);
   const [isDraggingBlock, setIsDraggingBlock] = useState(false);
@@ -739,7 +738,7 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
 
       <div
         data-programming-area
-        className={`bg-slate-900 p-4 rounded-lg border border-slate-600 mb-4 min-h-[300px] transition-all ${draggedCommand ? 'ring-2 ring-blue-400' : ''} ${isDraggingBlock ? 'ring-2 ring-red-400' : ''}`}
+        className={`bg-slate-900 p-4 rounded-lg border border-slate-600 mb-4 min-h-[300px] transition-all ${isDraggingBlock ? 'ring-2 ring-red-400' : ''}`}
         onDragOver={e => {
           e.preventDefault();
           e.stopPropagation();
@@ -747,10 +746,6 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
         onDrop={e => {
           e.preventDefault();
           e.stopPropagation();
-          if (draggedCommand) {
-            addCommand(draggedCommand);
-            setDraggedCommand(null);
-          }
         }}
         onDragEnter={e => {
           e.preventDefault();
@@ -759,10 +754,6 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
         onDragLeave={e => {
           e.preventDefault();
           e.stopPropagation();
-          // Only clear if we're actually leaving the drop zone
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-            setDraggedCommand(null);
-          }
         }}
       >
         <div className="space-y-2 max-h-[400px] overflow-y-auto">
@@ -879,13 +870,7 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
           ))
           )}
         </div>
-        {draggedCommand && (
-          <div className="mt-4 p-4 text-center text-blue-400 bg-blue-400/10 rounded-lg border-2 border-dashed border-blue-400/50 animate-pulse">
-            <div className="text-lg font-semibold mb-2">Drop here to add</div>
-            <div className="text-xl font-bold mb-2">{draggedCommand}</div>
-            <div className="text-sm text-blue-300">You can add unlimited commands!</div>
-          </div>
-        )}
+
         {isDraggingBlock && (
           <div className="mt-4 p-4 text-center text-red-400 bg-red-400/10 rounded-lg border-2 border-dashed border-red-400/50 animate-pulse">
             <div className="text-lg font-semibold mb-2">🗑️ Drag outside to delete</div>
@@ -899,21 +884,15 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <h3 className="text-sm font-medium text-purple-200">Available Commands:</h3>
-          <span className="text-xs text-slate-400">Drag unlimited commands to build your program!</span>
+          <span className="text-xs text-slate-400">Click to add unlimited commands to build your program!</span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {availableCommands.map((command) => (
-            <motion.div
+            <button
               key={command.type}
-              draggable
-              onDragStart={() => {
-                setDraggedCommand(command.type);
-              }}
-              onDragEnd={() => {
-                setDraggedCommand(null);
-              }}
+              onClick={() => addCommand(command.type)}
               className={`
-                flex items-center justify-center px-3 py-3 rounded-lg border cursor-grab select-none transition-all duration-200
+                flex items-center justify-center px-3 py-3 rounded-lg border cursor-pointer select-none transition-all duration-200
                 ${command.type === 'while' || command.type === 'if' || command.type === 'else' ? 'text-green-400 border-green-400/30 hover:bg-green-400/10' : ''}
                 ${command.type === 'move' || command.type === 'turn' ? 'text-blue-400 border-blue-400/30 hover:bg-blue-400/10' : ''}
                 ${command.type === 'collect' ? 'text-purple-400 border-purple-400/30 hover:bg-purple-400/10' : ''}
@@ -922,7 +901,7 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
               style={{ userSelect: 'none' }}
             >
               <span className="font-medium text-sm">{command.label}</span>
-            </motion.div>
+            </button>
           ))}
         </div>
       </div>
