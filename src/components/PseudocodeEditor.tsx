@@ -1,8 +1,29 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Square, RotateCcw } from "lucide-react";
-import { GameState, Command } from "@/types/game";
+import { GameState, Command, Position } from "@/types/game";
 import { useToast } from "@/hooks/use-toast";
+
+// Function to generate random gem positions
+const generateRandomGems = (gridSize: number, numGems: number): Position[] => {
+  const gems: Position[] = [];
+  const positions = new Set<string>();
+  
+  while (gems.length < numGems) {
+    const x = Math.floor(Math.random() * gridSize);
+    const y = Math.floor(Math.random() * gridSize);
+    const positionKey = `${x},${y}`;
+    
+    // Don't place gems at the starting position (0,0) or duplicate positions
+    if (x === 0 && y === 0) continue;
+    if (positions.has(positionKey)) continue;
+    
+    positions.add(positionKey);
+    gems.push({ x, y });
+  }
+  
+  return gems;
+};
 
 interface PseudocodeEditorProps {
   pseudocode: string[];
@@ -25,6 +46,7 @@ const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
       ...prev,
       playerPosition: { x: 0, y: 0 },
       playerDirection: 0,
+      gems: generateRandomGems(prev.gridSize, 4), // Generate new random gems
       collectedGems: [],
       isExecuting: false
     }));
@@ -255,8 +277,9 @@ const PseudocodeEditor: React.FC<PseudocodeEditorProps> = ({
     const finalGemsLeft = currentState.gems.length - currentState.collectedGems.length;
     if (finalGemsLeft === 0) {
       toast({
-        title: "Congratulations!",
-        description: "You collected all the gems!",
+        title: "🎉 Congratulations!",
+        description: "You collected all the gems! You're a programming master!",
+        className: "bg-gradient-to-r from-purple-600 to-blue-600 border-purple-500/50 text-white",
       });
     }
   };

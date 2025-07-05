@@ -1,16 +1,43 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Square, RotateCcw, Trash2, GripVertical, Trophy, Star, Sparkles } from "lucide-react";
-import { GameState, Command } from "@/types/game";
+import { GameState, Command, Position } from "@/types/game";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "motion/react";
+
+// Function to generate random gem positions
+const generateRandomGems = (gridSize: number, numGems: number): Position[] => {
+  const gems: Position[] = [];
+  const positions = new Set<string>();
+  
+  while (gems.length < numGems) {
+    const x = Math.floor(Math.random() * gridSize);
+    const y = Math.floor(Math.random() * gridSize);
+    const positionKey = `${x},${y}`;
+    
+    // Don't place gems at the starting position (0,0) or duplicate positions
+    if (x === 0 && y === 0) continue;
+    if (positions.has(positionKey)) continue;
+    
+    positions.add(positionKey);
+    gems.push({ x, y });
+  }
+  
+  return gems;
+};
 
 interface DragDropEditorProps {
   pseudocode: string[];
   setPseudocode: React.Dispatch<React.SetStateAction<string[]>>;
   gameState: GameState;
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
+}
+
+export interface DragDropEditorRef {
+  executeCode: () => void;
+  resetGame: () => void;
+  addCommand: (commandType: string) => void;
 }
 
 interface CodeBlock {
@@ -21,12 +48,12 @@ interface CodeBlock {
   indentLevel: number;
 }
 
-const DragDropEditor: React.FC<DragDropEditorProps> = ({
+const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
   pseudocode,
   setPseudocode,
   gameState,
   setGameState
-}) => {
+}, ref) => {
   const [codeBlocks, setCodeBlocks] = useState<CodeBlock[]>([
     { id: '1', type: 'while', condition: 'gems remain', indentLevel: 0 },
     { id: '2', type: 'if', condition: 'front is clear', indentLevel: 1 },
@@ -41,9 +68,17 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
   const [draggedCommand, setDraggedCommand] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [confetti, setConfetti] = useState<Array<{id: number, x: number, y: number, color: string}>>([]);
+  const [isDraggingBlock, setIsDraggingBlock] = useState(false);
   const { toast } = useToast();
 
   const dragRef = useRef<HTMLDivElement>(null);
+
+  // Expose functions through ref
+  useImperativeHandle(ref, () => ({
+    executeCode,
+    resetGame,
+    addCommand
+  }));
 
   const availableCommands = [
     { type: 'move', label: 'move', directions: ['forward'] },
@@ -153,7 +188,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
   };
 
   const createConfetti = () => {
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
+    const colors = ['#8B5CF6', '#6366F1', '#A855F7', '#3B82F6', '#1D4ED8', '#7C3AED', '#4F46E5', '#06B6D4'];
     const newConfetti = Array.from({ length: 50 }, (_, i) => ({
       id: i,
       x: Math.random() * window.innerWidth,
@@ -313,6 +348,40 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
   const handleMotionDrop = (event: any, info: any, dropIndex: number) => {
     if (!draggedItem) return;
 
+    // Get the programming area element
+    const programmingArea = document.querySelector('[data-programming-area]') as HTMLElement;
+    if (programmingArea) {
+      const rect = programmingArea.getBoundingClientRect();
+      const dropX = info.point.x;
+      const dropY = info.point.y;
+      
+      // Add a small buffer zone around the programming area for better detection
+      const buffer = 10;
+      const isOutside = dropX < (rect.left - buffer) || 
+                       dropX > (rect.right + buffer) || 
+                       dropY < (rect.top - buffer) || 
+                       dropY > (rect.bottom + buffer);
+      
+      if (isOutside) {
+        // Delete the block if dropped outside
+        const newBlocks = codeBlocks.filter(block => block.id !== draggedItem.id);
+        setCodeBlocks(newBlocks);
+        setDraggedItem(null);
+        setDragOverIndex(null);
+        setIsDraggingBlock(false);
+        updatePseudocode(newBlocks);
+        
+        // Show feedback
+        toast({
+          title: "Command Removed",
+          description: `"${draggedItem.type}" command has been deleted`,
+          className: "bg-red-600 border-red-500/50 text-white",
+        });
+        return;
+      }
+    }
+
+    // Normal reordering logic
     const dragIndex = codeBlocks.findIndex(block => block.id === draggedItem.id);
     const newBlocks = [...codeBlocks];
     
@@ -324,6 +393,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
     setCodeBlocks(newBlocks);
     setDraggedItem(null);
     setDragOverIndex(null);
+    setIsDraggingBlock(false);
     
     updatePseudocode(newBlocks);
   };
@@ -352,12 +422,42 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
   };
 
   const addCommand = (commandType: string) => {
+    let type: CodeBlock['type'];
+    let direction: string | undefined;
+    let condition: string | undefined;
+
+    // Handle different command types
+    if (commandType === 'move') {
+      type = 'move';
+      direction = 'forward';
+    } else if (commandType === 'turn-left') {
+      type = 'turn';
+      direction = 'left';
+    } else if (commandType === 'turn-right') {
+      type = 'turn';
+      direction = 'right';
+    } else if (commandType === 'collect') {
+      type = 'collect';
+    } else if (commandType === 'while') {
+      type = 'while';
+      condition = 'gems remain';
+    } else if (commandType === 'if') {
+      type = 'if';
+      condition = 'front is clear';
+    } else if (commandType === 'else') {
+      type = 'else';
+    } else {
+      type = commandType as any;
+      direction = commandType === 'turn' ? 'right' : undefined;
+      condition = commandType === 'while' ? 'gems remain' : commandType === 'if' ? 'front is clear' : undefined;
+    }
+
     const newBlock: CodeBlock = {
       id: Date.now().toString(),
-      type: commandType as any,
+      type,
       indentLevel: 0,
-      direction: commandType === 'move' ? 'forward' : commandType === 'turn' ? 'right' : undefined,
-      condition: commandType === 'while' ? 'gems remain' : commandType === 'if' ? 'front is clear' : undefined
+      direction,
+      condition
     };
     
     const newBlocks = [...codeBlocks, newBlock];
@@ -400,14 +500,67 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
       ...prev,
       playerPosition: { x: 0, y: 0 },
       playerDirection: 0,
+      gems: generateRandomGems(prev.gridSize, 4), // Generate new random gems
       collectedGems: [],
       isExecuting: false
     }));
     setCurrentLine(-1);
   };
 
+  const clearAllCommands = () => {
+    setCodeBlocks([]);
+    updatePseudocode([]);
+  };
+
   return (
-    <div className="bg-slate-800 p-6 rounded-2xl shadow-2xl border border-purple-500/30 relative overflow-hidden">
+    <div 
+      className="bg-slate-800 p-6 rounded-2xl shadow-2xl border border-purple-500/30 relative overflow-hidden"
+      onDragOver={e => {
+        if (isDraggingBlock) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+      onDrop={e => {
+        if (isDraggingBlock && draggedItem) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Get drop coordinates
+          const dropX = e.clientX;
+          const dropY = e.clientY;
+          
+          // Get programming area bounds
+          const programmingArea = document.querySelector('[data-programming-area]') as HTMLElement;
+          if (programmingArea) {
+            const rect = programmingArea.getBoundingClientRect();
+            const buffer = 15; // Larger buffer for global drop
+            
+            const isOutside = dropX < (rect.left - buffer) || 
+                             dropX > (rect.right + buffer) || 
+                             dropY < (rect.top - buffer) || 
+                             dropY > (rect.bottom + buffer);
+            
+            if (isOutside) {
+              // Delete the block if dropped outside
+              const newBlocks = codeBlocks.filter(block => block.id !== draggedItem.id);
+              setCodeBlocks(newBlocks);
+              setDraggedItem(null);
+              setDragOverIndex(null);
+              setIsDraggingBlock(false);
+              updatePseudocode(newBlocks);
+              
+              // Show feedback
+              toast({
+                title: "Command Removed",
+                description: `"${draggedItem.type}" command has been deleted`,
+                className: "bg-red-600 border-red-500/50 text-white",
+              });
+            }
+          }
+        }
+      }}
+    >
       {/* Confetti Animation */}
       <AnimatePresence>
         {confetti.map((piece) => (
@@ -449,7 +602,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
-              className="bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 p-8 rounded-3xl text-center shadow-2xl border-4 border-yellow-300"
+              className="bg-gradient-to-br from-slate-800 via-purple-900 to-blue-900 p-8 rounded-3xl text-center shadow-2xl border-4 border-purple-500/50 backdrop-blur-sm"
               onClick={(e) => e.stopPropagation()}
             >
               <motion.div
@@ -464,14 +617,14 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
                 }}
                 className="mb-4"
               >
-                <Trophy className="w-16 h-16 text-yellow-200 mx-auto" />
+                <Trophy className="w-16 h-16 text-purple-400 mx-auto drop-shadow-lg" />
               </motion.div>
               
               <motion.h2
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2 }}
-                className="text-3xl font-bold text-white mb-2"
+                className="text-3xl font-bold text-white mb-2 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
               >
                 🎉 CONGRATULATIONS! 🎉
               </motion.h2>
@@ -480,7 +633,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.4 }}
-                className="text-xl text-yellow-100 mb-6"
+                className="text-xl text-purple-200 mb-6"
               >
                 You collected all the gems! You're a programming master!
               </motion.p>
@@ -502,7 +655,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
                     ease: "linear"
                   }}
                 >
-                  <Star className="w-8 h-8 text-yellow-200" />
+                  <Star className="w-8 h-8 text-purple-400" />
                 </motion.div>
                 <motion.div
                   animate={{ 
@@ -515,7 +668,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
                     ease: "linear"
                   }}
                 >
-                  <Sparkles className="w-8 h-8 text-yellow-200" />
+                  <Sparkles className="w-8 h-8 text-blue-400" />
                 </motion.div>
                 <motion.div
                   animate={{ 
@@ -528,7 +681,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
                     ease: "linear"
                   }}
                 >
-                  <Star className="w-8 h-8 text-yellow-200" />
+                  <Star className="w-8 h-8 text-purple-400" />
                 </motion.div>
               </motion.div>
               
@@ -537,7 +690,7 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.8 }}
                 onClick={() => setShowCelebration(false)}
-                className="mt-6 px-6 py-3 bg-white text-orange-600 font-bold rounded-full hover:bg-yellow-100 transition-colors"
+                className="mt-6 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-full hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 Continue Playing!
               </motion.button>
@@ -546,169 +699,235 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-white">Visual Programming</h2>
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <h2 className="text-xl font-bold text-white">Visual Programming</h2>
+          <span className="text-sm text-purple-300 bg-purple-500/20 px-3 py-1.5 rounded-full border border-purple-500/30">
+            {codeBlocks.length} commands
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
           <Button
             onClick={executeCode}
             disabled={gameState.isExecuting}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-green-600 hover:bg-green-700 h-9 px-4"
             size="sm"
           >
-            <Play className="w-4 h-4 mr-1" />
+            <Play className="w-4 h-4 mr-2" />
             Run
           </Button>
           <Button
             onClick={resetGame}
             variant="outline"
             size="sm"
+            className="h-9 px-4"
           >
-            <RotateCcw className="w-4 h-4 mr-1" />
+            <RotateCcw className="w-4 h-4 mr-2" />
             Reset
+          </Button>
+          <Button
+            onClick={clearAllCommands}
+            variant="outline"
+            size="sm"
+            className="border-red-500/50 text-red-400 hover:bg-red-500/20 h-9 px-4"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Clear All
           </Button>
         </div>
       </div>
 
       <div
-        className={`bg-slate-900 p-4 rounded-lg border border-slate-600 mb-4 min-h-[300px] transition-all ${draggedCommand ? 'ring-2 ring-blue-400' : ''}`}
+        data-programming-area
+        className={`bg-slate-900 p-4 rounded-lg border border-slate-600 mb-4 min-h-[300px] transition-all ${draggedCommand ? 'ring-2 ring-blue-400' : ''} ${isDraggingBlock ? 'ring-2 ring-red-400' : ''}`}
         onDragOver={e => {
-          if (draggedCommand) e.preventDefault();
+          e.preventDefault();
+          e.stopPropagation();
         }}
         onDrop={e => {
+          e.preventDefault();
+          e.stopPropagation();
           if (draggedCommand) {
             addCommand(draggedCommand);
             setDraggedCommand(null);
           }
         }}
+        onDragEnter={e => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
         onDragLeave={e => {
-          if (draggedCommand) setDraggedCommand(null);
+          e.preventDefault();
+          e.stopPropagation();
+          // Only clear if we're actually leaving the drop zone
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setDraggedCommand(null);
+          }
         }}
       >
-        <div className="space-y-2">
-          {codeBlocks.map((block, index) => (
-            <motion.div
-              key={block.id}
-              drag
-              onDragEnd={(event, info) => handleMotionDrop(event, info, index)}
-              className={`
-                flex items-center gap-2 p-3 rounded-lg border transition-all cursor-move
-                ${dragOverIndex === index ? 'border-blue-400 bg-blue-400/10' : 'border-slate-600 bg-slate-700/50'}
-                ${currentLine === index ? 'ring-2 ring-yellow-400' : ''}
-                hover:bg-slate-700/70
-              `}
-              style={{ marginLeft: `${block.indentLevel * 24}px` }}
-            >
-              <GripVertical className="w-4 h-4 text-gray-400" />
-              
-              <div className="flex items-center gap-2 flex-1">
-                <span className={`
-                  font-mono text-sm px-2 py-1 rounded
-                  ${block.type === 'while' || block.type === 'if' || block.type === 'else' ? 'bg-green-500/20 text-green-400' : ''}
-                  ${block.type === 'move' || block.type === 'turn' ? 'bg-blue-500/20 text-blue-400' : ''}
-                  ${block.type === 'collect' ? 'bg-purple-500/20 text-purple-400' : ''}
-                `}>
-                  {block.type}
-                </span>
+        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+          {codeBlocks.length === 0 ? (
+            <div className="text-center py-8 text-slate-400 border-2 border-dashed border-slate-600 rounded-lg">
+              <div className="text-lg mb-2">No commands yet</div>
+              <div className="text-sm">Drag commands from below to start programming!</div>
+            </div>
+          ) : (
+            codeBlocks.map((block, index) => (
+              <motion.div
+                key={block.id}
+                drag
+                onDragStart={() => {
+                  setDraggedItem(block);
+                  setIsDraggingBlock(true);
+                }}
+                onDragEnd={(event, info) => handleMotionDrop(event, info, index)}
+                className={`
+                  flex items-center gap-4 p-4 rounded-lg border transition-all cursor-move group
+                  ${dragOverIndex === index ? 'border-blue-400 bg-blue-400/10' : 'border-slate-600 bg-slate-700/50'}
+                  ${currentLine === index ? 'ring-2 ring-yellow-400' : ''}
+                  hover:bg-slate-700/70 hover:border-slate-500
+                `}
+                style={{ marginLeft: `${block.indentLevel * 24}px` }}
+              >
+                <GripVertical className="w-5 h-5 text-gray-400 group-hover:text-gray-300 transition-colors flex-shrink-0" />
+                
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <span className={`
+                    font-mono text-sm px-3 py-2 rounded-md font-medium flex-shrink-0 min-w-[60px] text-center
+                    ${block.type === 'while' || block.type === 'if' || block.type === 'else' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : ''}
+                    ${block.type === 'move' || block.type === 'turn' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : ''}
+                    ${block.type === 'collect' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : ''}
+                  `}>
+                    {block.type}
+                  </span>
 
-                {(block.type === 'move' || block.type === 'turn') && (
-                  <Select 
-                    value={block.direction} 
-                    onValueChange={(value) => updateBlockDirection(block.id, value)}
+                  {(block.type === 'move' || block.type === 'turn') && (
+                    <Select 
+                      value={block.direction} 
+                      onValueChange={(value) => updateBlockDirection(block.id, value)}
+                    >
+                      <SelectTrigger className="w-32 h-9 bg-slate-800 border-slate-600 text-white shadow-sm flex-shrink-0" >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        {availableCommands.find(cmd => cmd.type === block.type)?.directions.map(dir => (
+                          <SelectItem key={dir} value={dir} className="text-white hover:bg-slate-700">
+                            {dir}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {(block.type === 'while' || block.type === 'if') && (
+                    <Select 
+                      value={block.condition} 
+                      onValueChange={(value) => updateBlockCondition(block.id, value)}
+                    >
+                      <SelectTrigger className="w-40 h-9 bg-slate-800 border-slate-600 text-white shadow-sm flex-shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        {availableCommands.find(cmd => cmd.type === block.type)?.conditions?.map(condition => (
+                          <SelectItem key={condition} value={condition} className="text-white hover:bg-slate-700">
+                            {condition}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+                  <Button
+                    onClick={() => adjustIndentation(block.id, -1)}
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-gray-400 hover:text-gray-300 hover:bg-gray-500/20 rounded-md"
+                    disabled={block.indentLevel === 0}
+                    title="Decrease indentation"
                   >
-                    <SelectTrigger className="w-24 h-8 bg-white border-gray-300 text-gray-900 shadow" >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-gray-300">
-                      {availableCommands.find(cmd => cmd.type === block.type)?.directions.map(dir => (
-                        <SelectItem key={dir} value={dir} className="text-gray-900 hover:bg-gray-100">
-                          {dir}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-
-                {(block.type === 'while' || block.type === 'if') && (
-                  <Select 
-                    value={block.condition} 
-                    onValueChange={(value) => updateBlockCondition(block.id, value)}
+                    ←
+                  </Button>
+                  <Button
+                    onClick={() => adjustIndentation(block.id, 1)}
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-gray-400 hover:text-gray-300 hover:bg-gray-500/20 rounded-md"
+                    title="Increase indentation"
                   >
-                    <SelectTrigger className="w-32 h-8 bg-white border-gray-300 text-gray-900 shadow">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-gray-300">
-                      {availableCommands.find(cmd => cmd.type === block.type)?.conditions?.map(condition => (
-                        <SelectItem key={condition} value={condition} className="text-gray-900 hover:bg-gray-100">
-                          {condition}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1">
-                <Button
-                  onClick={() => adjustIndentation(block.id, -1)}
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-gray-400 hover:text-gray-300"
-                  disabled={block.indentLevel === 0}
-                >
-                  ←
-                </Button>
-                <Button
-                  onClick={() => adjustIndentation(block.id, 1)}
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-gray-400 hover:text-gray-300"
-                >
-                  →
-                </Button>
-                <Button
-                  onClick={() => removeBlock(block.id)}
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-red-400 hover:text-red-300"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              </div>
-            </motion.div>
-          ))}
+                    →
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      removeBlock(block.id);
+                      toast({
+                        title: "Command Removed",
+                        description: `"${block.type}" command has been deleted`,
+                        className: "bg-red-600 border-red-500/50 text-white",
+                      });
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-md"
+                    title="Delete command"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </motion.div>
+          ))
+          )}
         </div>
         {draggedCommand && (
-          <div className="mt-4 p-2 text-center text-blue-400 bg-blue-400/10 rounded border border-blue-400/30">
-            Drop here to add <b>{draggedCommand}</b>
+          <div className="mt-4 p-4 text-center text-blue-400 bg-blue-400/10 rounded-lg border-2 border-dashed border-blue-400/50 animate-pulse">
+            <div className="text-lg font-semibold mb-2">Drop here to add</div>
+            <div className="text-xl font-bold mb-2">{draggedCommand}</div>
+            <div className="text-sm text-blue-300">You can add unlimited commands!</div>
+          </div>
+        )}
+        {isDraggingBlock && (
+          <div className="mt-4 p-4 text-center text-red-400 bg-red-400/10 rounded-lg border-2 border-dashed border-red-400/50 animate-pulse">
+            <div className="text-lg font-semibold mb-2">🗑️ Drag outside to delete</div>
+            <div className="text-xl font-bold mb-2">{draggedItem?.type}</div>
+            <div className="text-sm text-red-300">Drop outside the programming area to remove this command</div>
+            <div className="text-sm text-red-300 mt-1">💡 Move slowly for better detection</div>
           </div>
         )}
       </div>
 
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-purple-200">Available Commands:</h3>
-        <div className="grid grid-cols-3 gap-2">
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <h3 className="text-sm font-medium text-purple-200">Available Commands:</h3>
+          <span className="text-xs text-slate-400">Drag unlimited commands to build your program!</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {availableCommands.map((command) => (
             <motion.div
               key={command.type}
               draggable
-              onDragStart={() => setDraggedCommand(command.type)}
-              onDragEnd={() => setDraggedCommand(null)}
+              onDragStart={() => {
+                setDraggedCommand(command.type);
+              }}
+              onDragEnd={() => {
+                setDraggedCommand(null);
+              }}
               className={`
-                flex items-center justify-center px-3 py-2 rounded border cursor-grab select-none transition
-                ${command.type === 'while' || command.type === 'if' || command.type === 'else' ? 'text-green-400 border-green-400/30' : ''}
-                ${command.type === 'move' || command.type === 'turn' ? 'text-blue-400 border-blue-400/30' : ''}
-                ${command.type === 'collect' ? 'text-purple-400 border-purple-400/30' : ''}
-                bg-slate-700 hover:bg-slate-600 active:bg-slate-800
+                flex items-center justify-center px-3 py-3 rounded-lg border cursor-grab select-none transition-all duration-200
+                ${command.type === 'while' || command.type === 'if' || command.type === 'else' ? 'text-green-400 border-green-400/30 hover:bg-green-400/10' : ''}
+                ${command.type === 'move' || command.type === 'turn' ? 'text-blue-400 border-blue-400/30 hover:bg-blue-400/10' : ''}
+                ${command.type === 'collect' ? 'text-purple-400 border-purple-400/30 hover:bg-purple-400/10' : ''}
+                bg-slate-700 hover:bg-slate-600 active:bg-slate-800 hover:scale-105
               `}
               style={{ userSelect: 'none' }}
             >
-              {command.label}
+              <span className="font-medium text-sm">{command.label}</span>
             </motion.div>
           ))}
         </div>
       </div>
     </div>
   );
-};
+});
 
 export default DragDropEditor;
