@@ -8,214 +8,11 @@ interface GameBoardProps {
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
 }
 
-// Custom Code Bot Character Component
-const CustomCharacter: React.FC<{ direction: number; isExecuting: boolean }> = ({ direction, isExecuting }) => {
+// Simple Character Component
+const SimpleCharacter: React.FC<{ direction: number; isExecuting: boolean }> = ({ direction, isExecuting }) => {
   return (
-    <div className="relative w-10 h-10">
-      {/* Main Bot Body */}
-      <motion.div
-        className="absolute inset-0 bg-gradient-to-br from-slate-600 via-blue-600 to-indigo-700 rounded-lg border-2 border-blue-400 shadow-lg"
-        animate={{
-          scale: isExecuting ? [1, 1.05, 1] : 1,
-          boxShadow: isExecuting 
-            ? ["0 0 20px rgba(59, 130, 246, 0.6)", "0 0 30px rgba(59, 130, 246, 0.9)", "0 0 20px rgba(59, 130, 246, 0.6)"]
-            : "0 0 10px rgba(59, 130, 246, 0.4)"
-        }}
-        transition={{
-          scale: { duration: 0.5, repeat: Infinity },
-          boxShadow: { duration: 0.5, repeat: Infinity }
-        }}
-      >
-        {/* Circuit Board Pattern */}
-        <div className="absolute inset-1 bg-gradient-to-br from-blue-400/20 to-indigo-500/20 rounded-sm" />
-        <div className="absolute top-1 left-1 w-1 h-1 bg-green-400 rounded-full" />
-        <div className="absolute top-1 right-1 w-1 h-1 bg-green-400 rounded-full" />
-        <div className="absolute bottom-1 left-1 w-1 h-1 bg-green-400 rounded-full" />
-        <div className="absolute bottom-1 right-1 w-1 h-1 bg-green-400 rounded-full" />
-        
-        {/* Circuit Lines */}
-        <div className="absolute top-2 left-0 w-full h-0.5 bg-blue-300/30" />
-        <div className="absolute bottom-2 left-0 w-full h-0.5 bg-blue-300/30" />
-        <div className="absolute left-2 top-0 w-0.5 h-full bg-blue-300/30" />
-        <div className="absolute right-2 top-0 w-0.5 h-full bg-blue-300/30" />
-        
-        {/* Binary Eyes */}
-        <div className="absolute top-2 left-2 w-2 h-2 bg-green-400 rounded-sm animate-pulse border border-green-300">
-          <div className="text-[4px] text-black font-mono font-bold leading-none">10</div>
-        </div>
-        <div className="absolute top-2 right-2 w-2 h-2 bg-green-400 rounded-sm animate-pulse border border-green-300">
-          <div className="text-[4px] text-black font-mono font-bold leading-none">01</div>
-        </div>
-        
-        {/* CPU Core */}
-        <motion.div
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-yellow-400 rounded-sm border border-yellow-300"
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.8, 1, 0.8]
-          }}
-          transition={{
-            duration: 1,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        
-        {/* Direction Indicator */}
-        <motion.div
-          className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-0.5 bg-blue-300 rounded-full"
-          animate={{ rotate: direction * 90 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-        />
-      </motion.div>
-
-      {/* Antenna */}
-      <motion.div
-        className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-0.5 h-2 bg-blue-400 rounded-full"
-        animate={{
-          y: [0, -2, 0],
-          opacity: [0.7, 1, 0.7]
-        }}
-        transition={{
-          duration: 1.5,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-      >
-        <motion.div
-          className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-green-400 rounded-full"
-          animate={{
-            scale: [1, 1.3, 1],
-            opacity: [0.8, 1, 0.8]
-          }}
-          transition={{
-            duration: 0.8,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-      </motion.div>
-
-      {/* Code Execution Effects */}
-      {isExecuting && (
-        <motion.div
-          className="absolute -bottom-1 left-1/2 transform -translate-x-1/2"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{
-            scale: [0, 1, 0],
-            opacity: [0, 1, 0],
-            y: [0, -8, -15]
-          }}
-          transition={{
-            duration: 0.8,
-            repeat: Infinity,
-            ease: "easeOut"
-          }}
-        >
-          <div className="flex flex-col items-center">
-            <Code className="w-3 h-3 text-green-400" />
-            <Cpu className="w-2 h-2 text-blue-400 -mt-1" />
-            <Binary className="w-1 h-1 text-yellow-400 -mt-1" />
-          </div>
-        </motion.div>
-      )}
-
-      {/* Data Stream Trail */}
-      <motion.div
-        className="absolute inset-0"
-        animate={{ rotate: direction * 90 }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-      >
-        <motion.div
-          className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-3 bg-gradient-to-t from-blue-400 via-green-400 to-transparent rounded-full"
-          animate={{
-            height: isExecuting ? [12, 16, 12] : 12,
-            opacity: isExecuting ? [0.6, 1, 0.6] : 0.8
-          }}
-          transition={{
-            duration: 0.6,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-      </motion.div>
-
-      {/* Data Particles */}
-      {isExecuting && (
-        <>
-          <motion.div
-            className="absolute -top-3 -left-1 w-1 h-1 bg-green-400 rounded-full"
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{
-              scale: [0, 1, 0],
-              opacity: [0, 1, 0],
-              x: [0, -8],
-              y: [0, -8]
-            }}
-            transition={{
-              duration: 1,
-              repeat: Infinity,
-              delay: 0.3
-            }}
-          />
-          <motion.div
-            className="absolute -top-3 -right-1 w-1 h-1 bg-blue-400 rounded-full"
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{
-              scale: [0, 1, 0],
-              opacity: [0, 1, 0],
-              x: [0, 8],
-              y: [0, -8]
-            }}
-            transition={{
-              duration: 1,
-              repeat: Infinity,
-              delay: 0.6
-            }}
-          />
-          <motion.div
-            className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-yellow-400 rounded-full"
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{
-              scale: [0, 1, 0],
-              opacity: [0, 1, 0],
-              y: [0, -10]
-            }}
-            transition={{
-              duration: 1,
-              repeat: Infinity,
-              delay: 0.9
-            }}
-          />
-        </>
-      )}
-
-      {/* Processing Bars */}
-      <motion.div
-        className="absolute -right-1 top-1 w-1 h-2 bg-gradient-to-b from-green-400 to-blue-400 rounded-full"
-        animate={{
-          scaleY: [1, 0.3, 1],
-          opacity: [0.7, 1, 0.7]
-        }}
-        transition={{
-          duration: 1.2,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-      />
-      <motion.div
-        className="absolute -left-1 top-1 w-1 h-2 bg-gradient-to-b from-blue-400 to-green-400 rounded-full"
-        animate={{
-          scaleY: [0.3, 1, 0.3],
-          opacity: [0.7, 1, 0.7]
-        }}
-        transition={{
-          duration: 1.2,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 0.6
-        }}
-      />
+    <div className="w-full h-full flex items-center justify-center text-2xl text-white font-bold">
+      👤
     </div>
   );
 };
@@ -334,7 +131,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, setGameState }) => {
   const [particles, setParticles] = useState<Array<{id: number, x: number, y: number, type: string}>>([]);
   const [lastPosition, setLastPosition] = useState<Position>(playerPosition);
   const [showTrail, setShowTrail] = useState(false);
-  const [hoveredCell, setHoveredCell] = useState<{x: number, y: number} | null>(null);
+
 
   // Generate particles when gems are collected
   useEffect(() => {
@@ -420,13 +217,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, setGameState }) => {
       <FloatingInfo gameState={gameState} />
 
       {/* Main Game Board Container */}
-      <motion.div 
-        className="relative bg-gradient-to-br from-slate-800/80 via-purple-900/40 to-slate-800/80 p-8 rounded-3xl shadow-2xl border border-purple-500/30 backdrop-blur-sm mt-20"
-        initial={{ scale: 0.9, opacity: 0, y: 50 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        whileHover={{ scale: 1.02 }}
-      >
+              <div 
+          className="relative bg-gradient-to-br from-slate-800/80 via-purple-900/40 to-slate-800/80 p-8 rounded-3xl shadow-2xl border border-purple-500/30 backdrop-blur-sm mt-20"
+        >
         {/* Enhanced Background Pattern */}
         <div className="absolute inset-0 rounded-3xl overflow-hidden">
           <motion.div 
@@ -455,16 +248,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, setGameState }) => {
 
         {/* Grid Container */}
         <div className="relative">
-          <motion.div 
+          <div 
             className="grid gap-1 bg-gradient-to-br from-slate-900/90 via-slate-800/90 to-slate-900/90 p-6 rounded-2xl border-2 border-blue-400/30 shadow-inner backdrop-blur-sm"
           style={{ 
             gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
               width: '432px',
               height: '432px'
           }}
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
         >
           {Array.from({ length: gridSize * gridSize }).map((_, index) => {
             const x = index % gridSize;
@@ -472,46 +262,19 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, setGameState }) => {
             const isPlayer = playerPosition.x === x && playerPosition.y === y;
             const hasGem = isGemAt(x, y);
               const isTrail = showTrail && lastPosition.x === x && lastPosition.y === y;
-              const isHovered = hoveredCell?.x === x && hoveredCell?.y === y;
+
 
             return (
-                <motion.div
+                <div
                 key={index}
                 className={`
-                    relative border border-blue-300/10 bg-gradient-to-br from-slate-800/80 to-slate-700/60 rounded-lg cursor-pointer
+                    relative border border-blue-300/10 bg-gradient-to-br from-slate-800/80 to-slate-700/60 rounded-lg
                     ${isPlayer ? 'bg-gradient-to-br from-blue-500/40 to-indigo-600/30 border-blue-400/60 shadow-lg shadow-blue-500/25' : ''}
                     ${hasGem ? 'bg-gradient-to-br from-purple-500/30 to-purple-600/20 border-purple-400/40' : ''}
                     ${isTrail ? 'bg-gradient-to-br from-green-500/20 to-blue-500/20 border-green-400/40' : ''}
-                    ${isHovered ? 'bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-yellow-400/60 shadow-lg shadow-yellow-500/25' : ''}
+
                   transition-all duration-300
                 `}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ 
-                    duration: 0.3, 
-                    delay: index * 0.005,
-                    ease: "easeOut"
-                  }}
-                  whileHover={{ 
-                    scale: 1.1,
-                    boxShadow: "0 0 20px rgba(59, 130, 246, 0.4)",
-                    zIndex: 10
-                  }}
-                  onHoverStart={() => setHoveredCell({ x, y })}
-                  onHoverEnd={() => setHoveredCell(null)}
-                  onClick={() => {
-                    // Interactive click effect
-                    if (!isPlayer && !hasGem) {
-                      // Create a ripple effect
-                      const ripple = document.createElement('div');
-                      ripple.className = 'absolute inset-0 bg-blue-400/30 rounded-lg animate-ping';
-                      const cell = document.querySelector(`[data-cell="${index}"]`);
-                      if (cell) {
-                        cell.appendChild(ripple);
-                        setTimeout(() => ripple.remove(), 1000);
-                      }
-                    }
-                  }}
                   data-cell={index}
                 >
                   {/* Cell Background Animation */}
@@ -542,14 +305,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, setGameState }) => {
                         }}
                       />
                     )}
-                    {isHovered && (
-                      <motion.div
-                        className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 via-yellow-500/30 to-yellow-400/20"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                      />
-                    )}
+
                   </div>
 
                   {/* Player */}
@@ -566,7 +322,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, setGameState }) => {
                         rotate: { duration: 0.3, ease: "easeInOut" }
                       }}
                     >
-                      <CustomCharacter direction={playerDirection} isExecuting={isExecuting} />
+                      <SimpleCharacter direction={playerDirection} isExecuting={isExecuting} />
                     </motion.div>
                   )}
 
@@ -617,21 +373,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, setGameState }) => {
                     </motion.div>
                   )}
 
-                  {/* Hover Indicator */}
-                  {isHovered && !isPlayer && !hasGem && (
-                    <motion.div
-                      className="absolute inset-0 flex items-center justify-center"
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0, opacity: 0 }}
-                    >
-                      <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-                    </motion.div>
-                  )}
-                </motion.div>
+
+                </div>
             );
           })}
-          </motion.div>
+          </div>
 
           {/* Particles */}
           <div className="absolute inset-0 pointer-events-none">
@@ -640,7 +386,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, setGameState }) => {
         </div>
 
 
-      </motion.div>
+      </div>
       
       {/* Enhanced Stats Panel */}
       <motion.div 

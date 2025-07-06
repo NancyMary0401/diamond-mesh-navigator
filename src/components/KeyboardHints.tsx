@@ -17,6 +17,7 @@ const actionLabels: Record<GameAction, string> = {
   whileLoop: 'Add While',
   ifStatement: 'Add If',
   elseStatement: 'Add Else',
+  forLoop: 'Add For',
   resetGame: 'Reset',
   executeCode: 'Run Code',
   stopExecution: 'Stop',

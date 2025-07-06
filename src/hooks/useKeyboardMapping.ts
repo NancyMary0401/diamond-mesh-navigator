@@ -42,6 +42,7 @@ const defaultMappings: KeyMapping = {
   'w': 'whileLoop',
   'i': 'ifStatement',
   'l': 'elseStatement',
+  'f': 'forLoop',
   'c': 'toggleMapping'
 };
 
@@ -266,6 +267,11 @@ export const useKeyboardMapping = ({
         case 'elseStatement':
           if (onAddCommand) {
             onAddCommand('else');
+          }
+          break;
+        case 'forLoop':
+          if (onAddCommand) {
+            onAddCommand('for');
           }
           break;
         case 'resetGame':

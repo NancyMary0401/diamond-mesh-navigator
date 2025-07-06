@@ -42,9 +42,10 @@ export interface DragDropEditorRef {
 
 interface CodeBlock {
   id: string;
-  type: 'move' | 'turn' | 'collect' | 'while' | 'if' | 'else';
+  type: 'move' | 'turn' | 'collect' | 'while' | 'if' | 'else' | 'for';
   direction?: string;
   condition?: string;
+  iterations?: number;
   indentLevel: number;
 }
 
@@ -85,7 +86,8 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
     { type: 'collect', label: 'collect', directions: [] },
     { type: 'while', label: 'while', conditions: ['gems remain', 'off target'] },
     { type: 'if', label: 'if', conditions: ['front is clear', 'gem found'] },
-    { type: 'else', label: 'else', directions: [] }
+    { type: 'else', label: 'else', directions: [] },
+    { type: 'for', label: 'for', iterations: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }
   ];
 
   const parseCommand = (block: CodeBlock): Command | null => {
@@ -100,6 +102,8 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
         return { type: 'while', condition: block.condition };
       case 'if':
         return { type: 'if', condition: block.condition };
+      case 'for':
+        return { type: 'for', iterations: block.iterations };
       default:
         return null;
     }
@@ -322,6 +326,77 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
               blockIndex++;
             }
           }
+        } else if (command.type === 'for') {
+          const iterations = command.iterations || 1;
+          console.log(`For loop started with ${iterations} iterations`);
+          
+          for (let i = 0; i < iterations && iterations < maxIterations; i++) {
+            console.log(`For loop iteration ${i + 1}/${iterations}`);
+            
+            for (let forBlockIndex = blockIndex + 1; forBlockIndex < codeBlocks.length; forBlockIndex++) {
+              const forBlock = codeBlocks[forBlockIndex];
+              
+              if (forBlock.indentLevel <= block.indentLevel) {
+                break;
+              }
+              
+              setCurrentLine(forBlockIndex);
+              console.log(`Executing for loop block ${forBlockIndex}:`, forBlock);
+              
+              const forCommand = parseCommand(forBlock);
+              
+              if (forCommand) {
+                if (forCommand.type === 'if') {
+                  if (checkCondition(forCommand.condition || '', currentState)) {
+                    console.log('If condition true, executing next command');
+                    const nextBlockIndex = forBlockIndex + 1;
+                    if (nextBlockIndex < codeBlocks.length && codeBlocks[nextBlockIndex].indentLevel > forBlock.indentLevel) {
+                      setCurrentLine(nextBlockIndex);
+                      const ifCommand = parseCommand(codeBlocks[nextBlockIndex]);
+                      if (ifCommand) {
+                        console.log(`Executing if command:`, ifCommand);
+                        currentState = executeCommand(ifCommand, currentState);
+                        setGameState(currentState);
+                        await new Promise(resolve => setTimeout(resolve, 800));
+                      }
+                      forBlockIndex++;
+                    }
+                  } else {
+                    // Skip to else block if it exists
+                    let elseBlockIndex = forBlockIndex + 1;
+                    while (elseBlockIndex < codeBlocks.length && codeBlocks[elseBlockIndex].indentLevel > forBlock.indentLevel) {
+                      elseBlockIndex++;
+                    }
+                    if (elseBlockIndex < codeBlocks.length && codeBlocks[elseBlockIndex].type === 'else') {
+                      const nextElseBlockIndex = elseBlockIndex + 1;
+                      if (nextElseBlockIndex < codeBlocks.length && codeBlocks[nextElseBlockIndex].indentLevel > codeBlocks[elseBlockIndex].indentLevel) {
+                        setCurrentLine(nextElseBlockIndex);
+                        const elseCommand = parseCommand(codeBlocks[nextElseBlockIndex]);
+                        if (elseCommand) {
+                          console.log(`Executing else command:`, elseCommand);
+                          currentState = executeCommand(elseCommand, currentState);
+                          setGameState(currentState);
+                          await new Promise(resolve => setTimeout(resolve, 800));
+                        }
+                      }
+                      forBlockIndex = elseBlockIndex + 1;
+                    }
+                  }
+                } else {
+                  console.log(`Executing for command:`, forCommand);
+                  currentState = executeCommand(forCommand, currentState);
+                  setGameState(currentState);
+                  await new Promise(resolve => setTimeout(resolve, 800));
+                }
+              }
+            }
+          }
+          
+          let nextBlockIndex = blockIndex + 1;
+          while (nextBlockIndex < codeBlocks.length && codeBlocks[nextBlockIndex].indentLevel > block.indentLevel) {
+            nextBlockIndex++;
+          }
+          blockIndex = nextBlockIndex - 1;
         } else {
           console.log(`Executing command:`, command);
           currentState = executeCommand(command, currentState);
@@ -383,9 +458,24 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
     const dragIndex = codeBlocks.findIndex(block => block.id === draggedItem.id);
     const newBlocks = [...codeBlocks];
     
+    // Remove the dragged item from its original position
     newBlocks.splice(dragIndex, 1);
     
-    const adjustedDropIndex = dragIndex < dropIndex ? dropIndex - 1 : dropIndex;
+    // Calculate the correct drop index
+    let adjustedDropIndex = dropIndex;
+    if (dragIndex < dropIndex) {
+      adjustedDropIndex = dropIndex - 1;
+    }
+    
+    // Handle dropping at the end
+    if (dropIndex === codeBlocks.length) {
+      adjustedDropIndex = newBlocks.length;
+    }
+    
+    // Ensure the drop index is within bounds
+    adjustedDropIndex = Math.max(0, Math.min(adjustedDropIndex, newBlocks.length));
+    
+    // Insert the dragged item at the new position
     newBlocks.splice(adjustedDropIndex, 0, draggedItem);
     
     setCodeBlocks(newBlocks);
@@ -394,6 +484,15 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
     setIsDraggingBlock(false);
     
     updatePseudocode(newBlocks);
+    
+    // Show success feedback for reordering
+    if (dragIndex !== adjustedDropIndex) {
+      toast({
+        title: "Command Reordered",
+        description: `"${draggedItem.type}" command moved to position ${adjustedDropIndex + 1}`,
+        className: "bg-green-600 border-green-500/50 text-white",
+      });
+    }
   };
 
   const updatePseudocode = (blocks: CodeBlock[]) => {
@@ -412,6 +511,8 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
           return `${indent}if ${block.condition}`;
         case 'else':
           return `${indent}else`;
+        case 'for':
+          return `${indent}for ${block.iterations} times`;
         default:
           return `${indent}${block.type}`;
       }
@@ -444,6 +545,8 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
       condition = 'front is clear';
     } else if (commandType === 'else') {
       type = 'else';
+    } else if (commandType === 'for') {
+      type = 'for';
     } else {
       type = commandType as any;
       direction = commandType === 'turn' ? 'right' : undefined;
@@ -455,7 +558,8 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
       type,
       indentLevel: 0,
       direction,
-      condition
+      condition,
+      iterations: type === 'for' ? 3 : undefined
     };
     
     const newBlocks = [...codeBlocks, newBlock];
@@ -480,6 +584,14 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
   const updateBlockCondition = (id: string, condition: string) => {
     const newBlocks = codeBlocks.map(block => 
       block.id === id ? { ...block, condition } : block
+    );
+    setCodeBlocks(newBlocks);
+    updatePseudocode(newBlocks);
+  };
+
+  const updateBlockIterations = (id: string, iterations: number) => {
+    const newBlocks = codeBlocks.map(block => 
+      block.id === id ? { ...block, iterations } : block
     );
     setCodeBlocks(newBlocks);
     updatePseudocode(newBlocks);
@@ -808,7 +920,7 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
         data-programming-area
         className={`bg-slate-900 p-4 rounded-lg border border-slate-600 mb-4 min-h-[300px] transition-all ${isDraggingBlock ? 'ring-2 ring-red-400' : ''}`}
       >
-        <div className={`space-y-2 ${codeBlocks.length > 0 ? 'max-h-[400px] overflow-y-auto' : ''}`}>
+        <div className="space-y-2">
           {codeBlocks.length === 0 ? (
             <div className="text-center py-8 text-slate-400 border-2 border-dashed border-slate-600 rounded-lg">
               <div className="text-lg mb-2">No commands yet</div>
@@ -818,6 +930,7 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
             codeBlocks.map((block, index) => (
               <motion.div
                 key={block.id}
+                data-block-id={block.id}
                 drag
                 onDragStart={() => {
                   setDraggedItem(block);
@@ -841,29 +954,52 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
                     if (!isInside) {
                       setDragOverIndex(-1); // -1 indicates outside
                     } else {
-                      // Calculate which index we're hovering over
-                      const blockHeight = 80; // Approximate height of each block
-                      const relativeY = dragY - rect.top;
-                      const hoverIndex = Math.floor(relativeY / blockHeight);
-                      setDragOverIndex(Math.max(0, Math.min(hoverIndex, codeBlocks.length - 1)));
+                      // Find the actual block element we're hovering over
+                      const blockElements = programmingArea.querySelectorAll('[data-block-id]');
+                      let hoverIndex = -1;
+                      
+                      blockElements.forEach((element, idx) => {
+                        const blockRect = element.getBoundingClientRect();
+                        if (dragY >= blockRect.top && dragY <= blockRect.bottom) {
+                          hoverIndex = idx;
+                        }
+                      });
+                      
+                      // If not hovering over any specific block, determine position based on Y coordinate
+                      if (hoverIndex === -1) {
+                        const relativeY = dragY - rect.top;
+                        const blockHeight = 80; // Approximate height of each block
+                        hoverIndex = Math.floor(relativeY / blockHeight);
+                      }
+                      
+                      // Allow dropping at the end (codeBlocks.length)
+                      const maxIndex = codeBlocks.length;
+                      setDragOverIndex(Math.max(0, Math.min(hoverIndex, maxIndex)));
                     }
                   }
                 }}
                 className={`
-                  flex items-center gap-4 p-4 rounded-lg border transition-all cursor-move group
+                  flex items-center gap-4 p-4 rounded-lg border transition-all cursor-move group relative
                   ${dragOverIndex === index ? 'border-blue-400 bg-blue-400/10' : 'border-slate-600 bg-slate-700/50'}
                   ${currentLine === index ? 'ring-2 ring-yellow-400' : ''}
+                  ${draggedItem?.id === block.id ? 'opacity-30' : ''}
                   ${dragOverIndex === -1 && isDraggingBlock ? 'opacity-50' : ''}
                   hover:bg-slate-700/70 hover:border-slate-500
+                  ${isDraggingBlock ? 'z-10' : ''}
                 `}
                 style={{ marginLeft: `${block.indentLevel * 24}px` }}
               >
+                {/* Drop zone indicator */}
+                {isDraggingBlock && dragOverIndex === index && draggedItem?.id !== block.id && (
+                  <div className="absolute -top-1 left-0 right-0 h-1 bg-blue-400 rounded-full animate-pulse z-10" />
+                )}
+                
                 <GripVertical className="w-5 h-5 text-gray-400 group-hover:text-gray-300 transition-colors flex-shrink-0" />
                 
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   <span className={`
                     font-mono text-sm px-3 py-2 rounded-md font-medium flex-shrink-0 min-w-[60px] text-center
-                    ${block.type === 'while' || block.type === 'if' || block.type === 'else' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : ''}
+                    ${block.type === 'while' || block.type === 'if' || block.type === 'else' || block.type === 'for' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : ''}
                     ${block.type === 'move' || block.type === 'turn' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : ''}
                     ${block.type === 'collect' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : ''}
                   `}>
@@ -900,6 +1036,24 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
                         {availableCommands.find(cmd => cmd.type === block.type)?.conditions?.map(condition => (
                           <SelectItem key={condition} value={condition} className="text-white hover:bg-slate-700">
                             {condition}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {block.type === 'for' && (
+                    <Select 
+                      value={block.iterations?.toString() || '3'} 
+                      onValueChange={(value) => updateBlockIterations(block.id, parseInt(value))}
+                    >
+                      <SelectTrigger className="w-20 h-9 bg-slate-800 border-slate-600 text-white shadow-sm flex-shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        {availableCommands.find(cmd => cmd.type === 'for')?.iterations?.map(iterations => (
+                          <SelectItem key={iterations} value={iterations.toString()} className="text-white hover:bg-slate-700">
+                            {iterations}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -947,6 +1101,18 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
               </motion.div>
           ))
           )}
+          
+          {/* Drop zone indicator at the end */}
+          {isDraggingBlock && dragOverIndex === codeBlocks.length && (
+            <div className="flex items-center gap-4 p-4 rounded-lg border-2 border-dashed border-blue-400 bg-blue-400/10 animate-pulse">
+              <div className="w-5 h-5 text-blue-400 flex-shrink-0">
+                <GripVertical className="w-5 h-5" />
+              </div>
+              <div className="text-blue-400 text-sm font-medium">
+                Drop here to add at the end
+              </div>
+            </div>
+          )}
         </div>
 
         {isDraggingBlock && (
@@ -977,7 +1143,7 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
               onClick={() => addCommand(command.type)}
               className={`
                 flex items-center justify-center px-3 py-3 rounded-lg border cursor-pointer select-none transition-all duration-200
-                ${command.type === 'while' || command.type === 'if' || command.type === 'else' ? 'text-green-400 border-green-400/30 hover:bg-green-400/10' : ''}
+                ${command.type === 'while' || command.type === 'if' || command.type === 'else' || command.type === 'for' ? 'text-green-400 border-green-400/30 hover:bg-green-400/10' : ''}
                 ${command.type === 'move' || command.type === 'turn' ? 'text-blue-400 border-blue-400/30 hover:bg-blue-400/10' : ''}
                 ${command.type === 'collect' ? 'text-purple-400 border-purple-400/30 hover:bg-purple-400/10' : ''}
                 bg-slate-700 hover:bg-slate-600 active:bg-slate-800 hover:scale-105

@@ -13,9 +13,10 @@ export interface GameState {
 }
 
 export interface Command {
-  type: 'move' | 'turn' | 'collect' | 'while' | 'if' | 'end';
+  type: 'move' | 'turn' | 'collect' | 'while' | 'if' | 'else' | 'for' | 'end';
   direction?: 'forward' | 'left' | 'right';
   condition?: string;
+  iterations?: number;
 }
 
 // Keyboard mapping types
@@ -30,7 +31,8 @@ export type GameAction =
   | 'toggleMapping'
   | 'whileLoop'
   | 'ifStatement'
-  | 'elseStatement';
+  | 'elseStatement'
+  | 'forLoop';
 
 export interface KeyMapping {
   [key: string]: GameAction;
