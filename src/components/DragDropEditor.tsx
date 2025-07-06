@@ -1,7 +1,7 @@
 import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Square, RotateCcw, Trash2, GripVertical, Trophy, Star, Sparkles } from "lucide-react";
+import { Play, Square, RotateCcw, Trash2, GripVertical, Trophy, Star, Sparkles, Code } from "lucide-react";
 import { GameState, Command, Position } from "@/types/game";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "motion/react";
@@ -354,14 +354,13 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
       const dropX = info.point.x;
       const dropY = info.point.y;
       
-      // Add a small buffer zone around the programming area for better detection
-      const buffer = 10;
-      const isOutside = dropX < (rect.left - buffer) || 
-                       dropX > (rect.right + buffer) || 
-                       dropY < (rect.top - buffer) || 
-                       dropY > (rect.bottom + buffer);
+      // Check if dropped inside the programming area
+      const isInside = dropX >= rect.left && 
+                      dropX <= rect.right && 
+                      dropY >= rect.top && 
+                      dropY <= rect.bottom;
       
-      if (isOutside) {
+      if (!isInside) {
         // Delete the block if dropped outside
         const newBlocks = codeBlocks.filter(block => block.id !== draggedItem.id);
         setCodeBlocks(newBlocks);
@@ -514,51 +513,6 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
   return (
     <div 
       className="bg-slate-800 p-6 rounded-2xl shadow-2xl border border-purple-500/30 relative overflow-hidden"
-      onDragOver={e => {
-        if (isDraggingBlock) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }}
-      onDrop={e => {
-        if (isDraggingBlock && draggedItem) {
-          e.preventDefault();
-          e.stopPropagation();
-          
-          // Get drop coordinates
-          const dropX = e.clientX;
-          const dropY = e.clientY;
-          
-          // Get programming area bounds
-          const programmingArea = document.querySelector('[data-programming-area]') as HTMLElement;
-          if (programmingArea) {
-            const rect = programmingArea.getBoundingClientRect();
-            const buffer = 15; // Larger buffer for global drop
-            
-            const isOutside = dropX < (rect.left - buffer) || 
-                             dropX > (rect.right + buffer) || 
-                             dropY < (rect.top - buffer) || 
-                             dropY > (rect.bottom + buffer);
-            
-            if (isOutside) {
-              // Delete the block if dropped outside
-              const newBlocks = codeBlocks.filter(block => block.id !== draggedItem.id);
-              setCodeBlocks(newBlocks);
-              setDraggedItem(null);
-              setDragOverIndex(null);
-              setIsDraggingBlock(false);
-              updatePseudocode(newBlocks);
-              
-              // Show feedback
-              toast({
-                title: "Command Removed",
-                description: `"${draggedItem.type}" command has been deleted`,
-                className: "bg-red-600 border-red-500/50 text-white",
-              });
-            }
-          }
-        }
-      }}
     >
       {/* Confetti Animation */}
       <AnimatePresence>
@@ -587,112 +541,214 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
         ))}
       </AnimatePresence>
 
-      {/* Celebration Modal */}
+      {/* Enhanced Celebration Modal */}
       <AnimatePresence>
         {showCelebration && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.5 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50"
             onClick={() => setShowCelebration(false)}
           >
+            {/* Animated Background Elements */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              {/* Floating Code Symbols */}
+              {Array.from({ length: 12 }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute text-blue-400/30 text-3xl font-mono"
+                  initial={{
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    rotate: 0,
+                    scale: 0
+                  }}
+                  animate={{
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    rotate: 360,
+                    scale: [0, 1, 0]
+                  }}
+                  transition={{
+                    duration: 8 + Math.random() * 4,
+                    repeat: Infinity,
+                    ease: "linear",
+                    delay: Math.random() * 2
+                  }}
+                >
+                  {['{', '}', '[', ']', '<', '>', '/', ';', '(', ')', '=', '+'][i]}
+                </motion.div>
+              ))}
+              
+              {/* Bursting Particles */}
+              {Array.from({ length: 20 }).map((_, i) => (
+                <motion.div
+                  key={`burst-${i}`}
+                  className="absolute w-2 h-2 rounded-full"
+                  initial={{
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                    scale: 0,
+                    opacity: 1
+                  }}
+                  animate={{
+                    x: window.innerWidth / 2 + (Math.random() - 0.5) * 800,
+                    y: window.innerHeight / 2 + (Math.random() - 0.5) * 600,
+                    scale: [0, 1, 0],
+                    opacity: [1, 1, 0]
+                  }}
+                  transition={{
+                    duration: 2 + Math.random() * 1,
+                    ease: "easeOut",
+                    delay: Math.random() * 0.5
+                  }}
+                  style={{
+                    backgroundColor: ['#8B5CF6', '#6366F1', '#A855F7', '#3B82F6', '#1D4ED8', '#7C3AED', '#4F46E5', '#06B6D4', '#10B981', '#F59E0B'][Math.floor(Math.random() * 10)]
+                  }}
+                />
+              ))}
+            </div>
+
             <motion.div
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 50, opacity: 0 }}
-              className="bg-gradient-to-br from-slate-800 via-purple-900 to-blue-900 p-8 rounded-3xl text-center shadow-2xl border-4 border-purple-500/50 backdrop-blur-sm"
+              initial={{ scale: 0.8, y: 50, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.8, y: 50, opacity: 0 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="relative bg-gradient-to-br from-slate-900/95 via-purple-900/90 to-blue-900/95 p-10 rounded-3xl text-center shadow-2xl border-4 border-purple-500/50 backdrop-blur-sm max-w-md mx-4"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Glowing Border Animation */}
               <motion.div
-                animate={{ 
-                  rotate: [0, -10, 10, -10, 0],
-                  scale: [1, 1.1, 1]
+                className="absolute inset-0 rounded-3xl bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-cyan-500/20"
+                animate={{
+                  backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"]
                 }}
-                transition={{ 
-                  duration: 0.5,
+                transition={{
+                  duration: 3,
                   repeat: Infinity,
-                  repeatDelay: 1
+                  ease: "linear"
                 }}
-                className="mb-4"
-              >
-                <Trophy className="w-16 h-16 text-purple-400 mx-auto drop-shadow-lg" />
-              </motion.div>
+              />
               
-              <motion.h2
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="text-3xl font-bold text-white mb-2 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
-              >
-                🎉 CONGRATULATIONS! 🎉
-              </motion.h2>
-              
-              <motion.p
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.4 }}
-                className="text-xl text-purple-200 mb-6"
-              >
-                You collected all the gems! You're a programming master!
-              </motion.p>
-              
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="flex justify-center gap-4"
-              >
+              {/* Main Content */}
+              <div className="relative z-10">
+                {/* Trophy with Enhanced Animation */}
                 <motion.div
+                  className="mb-6"
                   animate={{ 
-                    rotate: [0, 360],
-                    scale: [1, 1.2, 1]
+                    rotate: [0, -5, 5, -5, 0],
+                    scale: [1, 1.1, 1],
+                    y: [0, -10, 0]
                   }}
                   transition={{ 
                     duration: 2,
                     repeat: Infinity,
-                    ease: "linear"
+                    ease: "easeInOut"
                   }}
                 >
-                  <Star className="w-8 h-8 text-purple-400" />
+                  <div className="relative">
+                    <motion.div
+                      className="absolute inset-0 bg-yellow-400/30 rounded-full blur-xl"
+                      animate={{
+                        scale: [1, 1.5, 1],
+                        opacity: [0.5, 1, 0.5]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    />
+                    <Trophy className="w-20 h-20 text-yellow-400 mx-auto drop-shadow-2xl relative z-10" />
+                  </div>
                 </motion.div>
+                
+                {/* Title with Typing Effect */}
+                <motion.h2
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.3, duration: 0.6 }}
+                  className="text-4xl font-bold mb-4 bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 bg-clip-text text-transparent"
+                >
+                  🎉 VICTORY! 🎉
+                </motion.h2>
+                
+                {/* Programming-themed Subtitle */}
                 <motion.div
-                  animate={{ 
-                    rotate: [0, -360],
-                    scale: [1, 1.2, 1]
-                  }}
-                  transition={{ 
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "linear"
-                  }}
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.5, duration: 0.6 }}
+                  className="mb-6"
                 >
-                  <Sparkles className="w-8 h-8 text-blue-400" />
+                  <div className="text-2xl font-bold text-green-400 mb-2">
+                    Code Execution: SUCCESS! ✅
+                  </div>
+                  <div className="text-lg text-purple-200">
+                    All gems collected! You're a programming master!
+                  </div>
                 </motion.div>
+                
+                {/* Animated Stats */}
                 <motion.div
-                  animate={{ 
-                    rotate: [0, 360],
-                    scale: [1, 1.2, 1]
-                  }}
-                  transition={{ 
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "linear"
-                  }}
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.7, duration: 0.6 }}
+                  className="mb-8"
                 >
-                  <Star className="w-8 h-8 text-purple-400" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <motion.div
+                      className="bg-gradient-to-r from-purple-600/50 to-blue-600/50 p-3 rounded-xl border border-purple-400/30"
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      <div className="text-sm text-purple-200">Gems Collected</div>
+                      <div className="text-2xl font-bold text-yellow-300">{gameState.gems.length}</div>
+                    </motion.div>
+                    <motion.div
+                      className="bg-gradient-to-r from-green-600/50 to-emerald-600/50 p-3 rounded-xl border border-green-400/30"
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      <div className="text-sm text-green-200">Success Rate</div>
+                      <div className="text-2xl font-bold text-green-300">100%</div>
+                    </motion.div>
+                  </div>
                 </motion.div>
-              </motion.div>
-              
-              <motion.button
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.8 }}
-                onClick={() => setShowCelebration(false)}
-                className="mt-6 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-full hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                Continue Playing!
-              </motion.button>
+                
+                {/* Animated Buttons */}
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.9, duration: 0.6 }}
+                  className="flex flex-col sm:flex-row gap-3 justify-center"
+                >
+                  <motion.button
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowCelebration(false)}
+                    className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-full hover:from-green-600 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl border-2 border-green-400/50"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <Code className="w-5 h-5" />
+                      Continue Coding!
+                    </div>
+                  </motion.button>
+                  
+                  <motion.button
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      resetGame();
+                      setShowCelebration(false);
+                    }}
+                    className="px-8 py-4 bg-gradient-to-r from-purple-500 to-blue-600 text-white font-bold rounded-full hover:from-purple-600 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl border-2 border-purple-400/50"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <RotateCcw className="w-5 h-5" />
+                      Play Again
+                    </div>
+                  </motion.button>
+                </motion.div>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -736,27 +792,23 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
         </div>
       </div>
 
+      {/* Global Drag Overlay */}
+      {isDraggingBlock && (
+        <div className="fixed inset-0 pointer-events-none z-50">
+          <div className="absolute top-4 right-4 bg-red-600/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg border border-red-500/50">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🗑️</span>
+              <span className="font-medium">Drop anywhere outside to delete</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         data-programming-area
         className={`bg-slate-900 p-4 rounded-lg border border-slate-600 mb-4 min-h-[300px] transition-all ${isDraggingBlock ? 'ring-2 ring-red-400' : ''}`}
-        onDragOver={e => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onDrop={e => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onDragEnter={e => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onDragLeave={e => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
       >
-        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+        <div className={`space-y-2 ${codeBlocks.length > 0 ? 'max-h-[400px] overflow-y-auto' : ''}`}>
           {codeBlocks.length === 0 ? (
             <div className="text-center py-8 text-slate-400 border-2 border-dashed border-slate-600 rounded-lg">
               <div className="text-lg mb-2">No commands yet</div>
@@ -772,10 +824,36 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
                   setIsDraggingBlock(true);
                 }}
                 onDragEnd={(event, info) => handleMotionDrop(event, info, index)}
+                onDrag={(event, info) => {
+                  // Update drag over index for visual feedback
+                  const programmingArea = document.querySelector('[data-programming-area]') as HTMLElement;
+                  if (programmingArea) {
+                    const rect = programmingArea.getBoundingClientRect();
+                    const dragX = info.point.x;
+                    const dragY = info.point.y;
+                    
+                    // Check if dragging inside the programming area
+                    const isInside = dragX >= rect.left && 
+                                    dragX <= rect.right && 
+                                    dragY >= rect.top && 
+                                    dragY <= rect.bottom;
+                    
+                    if (!isInside) {
+                      setDragOverIndex(-1); // -1 indicates outside
+                    } else {
+                      // Calculate which index we're hovering over
+                      const blockHeight = 80; // Approximate height of each block
+                      const relativeY = dragY - rect.top;
+                      const hoverIndex = Math.floor(relativeY / blockHeight);
+                      setDragOverIndex(Math.max(0, Math.min(hoverIndex, codeBlocks.length - 1)));
+                    }
+                  }
+                }}
                 className={`
                   flex items-center gap-4 p-4 rounded-lg border transition-all cursor-move group
                   ${dragOverIndex === index ? 'border-blue-400 bg-blue-400/10' : 'border-slate-600 bg-slate-700/50'}
                   ${currentLine === index ? 'ring-2 ring-yellow-400' : ''}
+                  ${dragOverIndex === -1 && isDraggingBlock ? 'opacity-50' : ''}
                   hover:bg-slate-700/70 hover:border-slate-500
                 `}
                 style={{ marginLeft: `${block.indentLevel * 24}px` }}
@@ -873,10 +951,16 @@ const DragDropEditor = forwardRef<DragDropEditorRef, DragDropEditorProps>(({
 
         {isDraggingBlock && (
           <div className="mt-4 p-4 text-center text-red-400 bg-red-400/10 rounded-lg border-2 border-dashed border-red-400/50 animate-pulse">
-            <div className="text-lg font-semibold mb-2">🗑️ Drag outside to delete</div>
+            <div className="text-lg font-semibold mb-2">
+              {dragOverIndex === -1 ? '🗑️ Drop anywhere to delete' : '📝 Drag to reorder'}
+            </div>
             <div className="text-xl font-bold mb-2">{draggedItem?.type}</div>
-            <div className="text-sm text-red-300">Drop outside the programming area to remove this command</div>
-            <div className="text-sm text-red-300 mt-1">💡 Move slowly for better detection</div>
+            <div className="text-sm text-red-300">
+              {dragOverIndex === -1 
+                ? 'Drop anywhere outside the programming area to remove this command' 
+                : 'Drag to reorder or drop outside to delete'
+              }
+            </div>
           </div>
         )}
       </div>
