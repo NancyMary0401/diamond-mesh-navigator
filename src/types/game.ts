@@ -1,4 +1,3 @@
-
 export interface Position {
   x: number;
   y: number;
@@ -11,6 +10,8 @@ export interface GameState {
   collectedGems: Position[];
   isExecuting: boolean;
   gridSize: number;
+  shadowPosition: Position;
+  shadowDirection: number;
 }
 
 export interface Command {
