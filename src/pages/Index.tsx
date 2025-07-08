@@ -1,14 +1,15 @@
 import { useState } from "react";
 import GameBoard from "@/components/GameBoard";
 import CodeBlockEditor from "@/components/CodeBlockEditor";
-import { GameState, Position } from "@/types/game";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import ChatComponent from "@/components/ChatComponent";
+import TopBar from "@/components/TopBar";
 
 const Index = () => {
-  const [gameState, setGameState] = useState<GameState>({
+  const [gameState, setGameState] = useState({
     playerPosition: { x: 0, y: 0 },
-    playerDirection: 0, // 0: up, 1: right, 2: down, 3: left
+    playerDirection: 0,
+    shadowPosition: { x: 0, y: 0 },
+    shadowDirection: 0,
     gems: [
       { x: 2, y: 1 },
       { x: 7, y: 3 },
@@ -21,44 +22,33 @@ const Index = () => {
     isExecuting: false,
     gridSize: 10
   });
-
-  const [pseudocode, setPseudocode] = useState([
-    "while off target",
-    "  if front is clear",
-    "    move forward",
-    "  else",
-    "    turn right"
-  ]);
+  const [showChat, setShowChat] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 flex flex-col items-center justify-start">
-      <div className="w-full max-w-4xl mx-auto mt-8">
-        <Card className="bg-gradient-to-br from-purple-800/80 to-slate-900/80 border-none shadow-2xl mb-10">
-          <CardHeader className="items-center text-center p-8 pb-4">
-            <CardTitle className="text-5xl font-extrabold text-white tracking-tight mb-2 drop-shadow-lg">
-              Code Quest
-            </CardTitle>
-            <CardDescription className="text-lg text-purple-200 mb-4">
-              Program your way to collect all the gems!
-            </CardDescription>
-            <div className="flex items-center justify-center gap-2 mt-2">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-purple-400 animate-pulse"><path d="M12 2L22 9l-10 13L2 9l10-7z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/></svg>
-              <span className="text-white text-lg font-medium">{gameState.gems.length - gameState.collectedGems.length} gems left</span>
-            </div>
-          </CardHeader>
-        </Card>
-      </div>
-      <div className="w-full max-w-7xl mx-auto flex flex-col items-center">
-        <div className="flex flex-col lg:flex-row w-full min-h-[640px] bg-slate-800/40 rounded-2xl shadow-2xl overflow-hidden border border-purple-500/10">
-          <div className="flex flex-col items-center justify-start p-6 bg-slate-800/60 lg:w-1/2 w-full">
-            <GameBoard gameState={gameState} setGameState={setGameState} />
-          </div>
-          <div className="bg-gradient-to-b from-purple-500/10 via-purple-400/30 to-purple-500/10 lg:w-px w-full lg:h-auto h-2" />
-          <div className="flex flex-col gap-6 p-6 justify-start bg-slate-900/70 lg:w-1/2 w-full">
-            <CodeBlockEditor gameState={gameState} setGameState={setGameState} />
-          </div>
+    <div className="relative min-h-screen animate-bg bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 flex flex-col">
+      {/* Glassy TopBar */}
+      <TopBar gemsLeft={gameState.gems.length - gameState.collectedGems.length} />
+      {/* Main content: GameBoard and Code Editor side by side, perfectly aligned */}
+      <div className="flex flex-1 pt-20 max-w-screen-2xl mx-auto w-full items-stretch justify-center gap-8">
+        {/* GameBoard Card */}
+        <div className="glass rounded-3xl shadow-2xl p-8 max-w-md w-full flex flex-col justify-center h-full min-h-[500px]">
+          <GameBoard gameState={gameState} setGameState={setGameState} />
+        </div>
+        {/* Code Editor Card, no tabs */}
+        <div className="glass rounded-3xl shadow-2xl p-6 max-w-xl w-full flex flex-col justify-center h-full min-h-[500px]">
+          <CodeBlockEditor gameState={gameState} setGameState={setGameState} />
         </div>
       </div>
+      {/* Floating Chat Open Button */}
+      <button
+        className="fixed bottom-8 right-8 z-50 w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 shadow-2xl flex items-center justify-center text-white text-3xl hover:scale-105 transition-all"
+        onClick={() => setShowChat(v => !v)}
+        aria-label="Open Chat"
+      >
+        <span className="material-icons">chat</span>
+      </button>
+      {/* Floating ChatComponent (draggable, only if open) */}
+      {showChat && <ChatComponent floating gameState={gameState} setGameState={setGameState} />}
     </div>
   );
 };
