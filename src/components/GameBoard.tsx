@@ -22,14 +22,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState }) => {
   };
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="bg-slate-800 p-6 rounded-2xl shadow-2xl border border-purple-500/30">
+    <div className="flex flex-col items-center w-full h-full flex-1">
+      <div className="bg-slate-800 p-2 rounded-2xl shadow-2xl border border-purple-500/30 w-full h-full flex-1">
         <div 
-          className="grid gap-1 bg-slate-900 p-4 rounded-xl border-2 border-blue-400/50"
+          className="grid gap-1 bg-slate-900 p-1 rounded-xl border-2 border-blue-400/50 w-full h-full aspect-square max-w-lg"
           style={{ 
             gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
-            width: '384px',
-            height: '384px'
+            width: '100%',
+            height: '100%',
+            minWidth: '320px',
+            minHeight: '320px',
           }}
         >
           {Array.from({ length: gridSize * gridSize }).map((_, index) => {

@@ -366,6 +366,12 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
   };
 
   const removeBlock = (id: string) => {
+    // Check for duplicate IDs (should not happen, but helps debug)
+    const idCount = codeBlocks.filter(block => block.id === id).length;
+    if (idCount > 1) {
+      console.warn(`Duplicate block IDs found for id: ${id}`);
+    }
+    // Remove all blocks with the matching id
     const newBlocks = codeBlocks.filter(block => block.id !== id);
     setCodeBlocks(newBlocks);
     updatePseudocode(newBlocks);
@@ -588,17 +594,14 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
           {codeBlocks.map((block, index) => (
             <motion.div
               key={block.id}
-              drag
-              onDragEnd={(event, info) => handleMotionDrop(event, info, index)}
               className={`
-                flex items-center gap-2 p-3 rounded-lg border transition-all cursor-move
+                flex items-center gap-2 p-3 rounded-lg border transition-all
                 ${dragOverIndex === index ? 'border-blue-400 bg-blue-400/10' : 'border-slate-600 bg-slate-700/50'}
                 ${currentLine === index ? 'ring-2 ring-yellow-400' : ''}
                 hover:bg-slate-700/70
               `}
               style={{ marginLeft: `${block.indentLevel * 24}px` }}
             >
-              <GripVertical className="w-4 h-4 text-gray-400" />
               
               <div className="flex items-center gap-2 flex-1">
                 <span className={`
@@ -673,6 +676,15 @@ const DragDropEditor: React.FC<DragDropEditorProps> = ({
                 >
                   <Trash2 className="w-3 h-3" />
                 </Button>
+                <motion.div
+                  drag
+                  dragMomentum={false}
+                  onDragEnd={(event, info) => handleMotionDrop(event, info, index)}
+                  className="cursor-move flex items-center bg-slate-700 border border-slate-500 rounded-md p-1 ml-2 hover:bg-slate-600"
+                  title="Drag to reorder"
+                >
+                  <GripVertical className="w-5 h-5 text-purple-400" />
+                </motion.div>
               </div>
             </motion.div>
           ))}
