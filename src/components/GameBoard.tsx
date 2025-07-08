@@ -6,6 +6,8 @@ import { Gem, User, Ghost } from "lucide-react";
 interface GameBoardProps {
   gameState: GameState;
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
+  shadowPath: { x: number; y: number }[];
+  setShadowPath: React.Dispatch<React.SetStateAction<{ x: number; y: number }[]>>;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ gameState }) => {

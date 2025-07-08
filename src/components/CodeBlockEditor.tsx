@@ -372,7 +372,7 @@ function runCommands(commands, gameState, setGameState, step = 0) {
   if (step >= commands.length) return;
   const command = commands[step];
   setGameState(prev => {
-    let { playerPosition, playerDirection, gridSize } = prev;
+    let { playerPosition, playerDirection, gridSize, collectedGems, gems } = prev;
     if (command.type === 'move') {
       let { x, y } = playerPosition;
       if (command.option === 'forward') {
@@ -395,6 +395,18 @@ function runCommands(commands, gameState, setGameState, step = 0) {
       if (command.option === 'up') dir = 0;
       if (command.option === 'down') dir = 2;
       return { ...prev, playerDirection: dir };
+    }
+    if (command.type === 'collect') {
+      // Check if there's a gem at the current position and it's not already collected
+      const gemIndex = gems.findIndex(gem => gem.x === playerPosition.x && gem.y === playerPosition.y);
+      const alreadyCollected = collectedGems.some(gem => gem.x === playerPosition.x && gem.y === playerPosition.y);
+      if (gemIndex !== -1 && !alreadyCollected) {
+        return {
+          ...prev,
+          collectedGems: [...collectedGems, gems[gemIndex]]
+        };
+      }
+      return prev;
     }
     return prev;
   });
@@ -491,10 +503,13 @@ function runAST(ast, gameStateRef, setGameState, done) {
 interface CodeBlockEditorProps {
   gameState: GameState;
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
+  blocks: Block[];
+  setBlocks: React.Dispatch<React.SetStateAction<Block[]>>;
+  shadowPath: { x: number; y: number }[];
+  setShadowPath: React.Dispatch<React.SetStateAction<{ x: number; y: number }[]>>;
 }
 
-export default function CodeBlockEditor({ gameState, setGameState }: CodeBlockEditorProps) {
-  const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
+export default function CodeBlockEditor({ gameState, setGameState, blocks, setBlocks, shadowPath, setShadowPath }: CodeBlockEditorProps) {
   const [activeId, setActiveId] = useState(null);
   const [draggedToolbarBlock, setDraggedToolbarBlock] = useState(null);
   const [hoveredDropZone, setHoveredDropZone] = useState<string | null>(null); // Track which drop zone is hovered
@@ -507,6 +522,53 @@ export default function CodeBlockEditor({ gameState, setGameState }: CodeBlockEd
     gameStateRef.current = gameState;
   }, [gameState]);
   // --- End fix ---
+
+  // --- Shadow Path Calculation ---
+  React.useEffect(() => {
+    // Start from initial shadow position and direction
+    let shadowPos = { x: 0, y: 0 };
+    let shadowDir = 0;
+    const path = [{ x: shadowPos.x, y: shadowPos.y }];
+    // Flatten blocks to a list of commands
+    function flatten(blocks) {
+      let cmds = [];
+      for (const block of blocks) {
+        if (block.type === 'move' || block.type === 'turn') {
+          cmds.push({ type: block.type, option: block.option });
+        }
+        if (block.children && block.children.length > 0) {
+          cmds = cmds.concat(flatten(block.children));
+        }
+      }
+      return cmds;
+    }
+    const commands = flatten(blocks);
+    for (const cmd of commands) {
+      if (cmd.type === 'turn') {
+        if (cmd.option === 'right') shadowDir = (shadowDir + 1) % 4;
+        if (cmd.option === 'left') shadowDir = (shadowDir + 3) % 4;
+        if (cmd.option === 'up') shadowDir = 0;
+        if (cmd.option === 'down') shadowDir = 2;
+      }
+      if (cmd.type === 'move') {
+        let { x, y } = shadowPos;
+        if (cmd.option === 'forward') {
+          if (shadowDir === 0 && y > 0) y -= 1;
+          if (shadowDir === 1 && x < (gameState.gridSize - 1)) x += 1;
+          if (shadowDir === 2 && y < (gameState.gridSize - 1)) y += 1;
+          if (shadowDir === 3 && x > 0) x -= 1;
+        } else if (cmd.option === 'backward') {
+          if (shadowDir === 0 && y < (gameState.gridSize - 1)) y += 1;
+          if (shadowDir === 1 && x > 0) x -= 1;
+          if (shadowDir === 2 && y > 0) y -= 1;
+          if (shadowDir === 3 && x < (gameState.gridSize - 1)) x += 1;
+        }
+        shadowPos = { x, y };
+        path.push({ x, y });
+      }
+    }
+    setShadowPath(path);
+  }, [blocks, gameState.gridSize, setShadowPath]);
 
   // Handle drag from toolbar
   const handleToolbarDragStart = (e, blockType) => {
