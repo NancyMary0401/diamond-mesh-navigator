@@ -35,35 +35,6 @@
 
 .card {
   padding: 2em;
-  border-radius: 1.25rem;
-  box-shadow: 0 4px 24px 0 rgba(0,0,0,0.07), 0 1.5px 6px 0 rgba(0,0,0,0.03);
-  background: hsl(var(--card));
-  color: hsl(var(--card-foreground));
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-.card:hover {
-  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.12), 0 3px 12px 0 rgba(0,0,0,0.06);
-  transform: translateY(-2px) scale(1.01);
-}
-
-.modern-btn {
-  display: inline-block;
-  padding: 0.75em 1.5em;
-  border-radius: 999px;
-  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--secondary)));
-  color: hsl(var(--primary-foreground));
-  font-weight: 500;
-  font-size: 1rem;
-  border: none;
-  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.06);
-  cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
-}
-.modern-btn:hover, .modern-btn:focus {
-  background: linear-gradient(90deg, hsl(var(--secondary)), hsl(var(--primary)));
-  box-shadow: 0 4px 16px 0 rgba(0,0,0,0.10);
-  transform: translateY(-1px) scale(1.03);
-  outline: none;
 }
 
 .read-the-docs {

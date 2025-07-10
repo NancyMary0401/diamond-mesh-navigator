@@ -28,25 +28,39 @@ import { GameState } from "@/types/game";
 // Block types and options
 const blockTypes = [
   {
+    type: "while",
+    label: "while",
+    icon: <Repeat size={18} className="text-blue-400" />,
+    options: ["off target", "on target", "true", "false"],
+    color: "text-blue-400",
+  },
+  {
+    type: "if",
+    label: "if",
+    icon: <Code2 size={18} className="text-purple-400" />,
+    options: ["front is clear", "front is blocked"],
+    color: "text-purple-400",
+  },
+  {
+    type: "else",
+    label: "else",
+    icon: <Code2 size={18} className="text-purple-300" />,
+    options: [],
+    color: "text-purple-300",
+  },
+  {
     type: "move",
     label: "move",
-    icon: <Move size={18} className="text-cyan-300" />,
+    icon: <Move size={18} className="text-blue-500" />,
     options: ["forward", "backward"],
-    color: "text-cyan-300",
+    color: "text-blue-500",
   },
   {
     type: "turn",
     label: "turn",
     icon: <CornerRightUp size={18} className="text-blue-300" />,
-    options: ["left", "right"],
+    options: ["right", "left", "up", "down"],
     color: "text-blue-300",
-  },
-  {
-    type: "collect",
-    label: "collect",
-    icon: <Code2 size={18} className="text-purple-300" />,
-    options: [],
-    color: "text-purple-300",
   },
 ];
 
@@ -54,7 +68,7 @@ const blockTypes = [
 /**
  * Block type for code blocks (recursive for children)
  */
-type Block = {
+export type Block = {
   id: string;
   type: string;
   option: string;
@@ -181,17 +195,15 @@ function DropZone({ onDrop, isActive, label, onDragOver, onDragLeave }) {
 
 function CodeBlock({ block, listeners, isDragging, attributes, onOptionChange, setNodeRef, indent = 0, hoveredDropZone, handleDropZoneDragOver, handleDropZoneDragLeave, handleDropZoneDrop, onDelete }) {
   const blockType = findBlockType(block.type);
-  if (!blockType) return null;
-  // Dark accent backgrounds for block types
-  let accentBg = '';
-  if (blockType.type === 'move') accentBg = 'bg-gradient-to-r from-cyan-900 via-slate-800 to-cyan-800';
-  else if (blockType.type === 'turn') accentBg = 'bg-gradient-to-r from-blue-900 via-slate-800 to-blue-800';
-  else if (blockType.type === 'collect') accentBg = 'bg-gradient-to-r from-purple-900 via-slate-800 to-purple-800';
+  // Modern accent backgrounds for block types
+  const accentBg = blockType.color.includes('blue')
+    ? 'bg-gradient-to-r from-blue-50 via-white to-blue-100'
+    : 'bg-gradient-to-r from-purple-50 via-white to-purple-100';
   const accentText = blockType.color;
   const dropZoneId = `${block.id}-end`;
   return (
     <div
-      className={`flex flex-col border border-slate-700 rounded-xl px-3 py-2 mb-2 shadow-md transition-all duration-150 ${accentBg} ${isDragging ? 'scale-105 shadow-xl z-30' : 'hover:scale-[1.025] hover:shadow-lg'} relative`}
+      className={`flex flex-col border border-gray-200 rounded-xl px-3 py-2 mb-2 shadow-md transition-all duration-150 ${accentBg} ${isDragging ? 'scale-105 shadow-xl z-30' : 'hover:scale-[1.025] hover:shadow-lg'} relative`}
       style={{ marginLeft: indent * 24, minWidth: 120 }}
       ref={setNodeRef}
     >
@@ -201,14 +213,14 @@ function CodeBlock({ block, listeners, isDragging, attributes, onOptionChange, s
         {blockType.options.length > 0 && (
           <Select value={block.option} onValueChange={onOptionChange}>
             <SelectTrigger
-              className={`ml-1 h-7 px-2 text-xs font-semibold border-0 shadow-sm rounded-full bg-slate-900/80 ${accentText} flex items-center gap-1 focus:ring-2 focus:ring-cyan-700 transition-all min-w-[60px] max-w-[120px] text-slate-100`}
+              className={`ml-1 h-7 px-2 text-xs font-semibold border-0 shadow-sm rounded-full bg-white/80 ${accentText} flex items-center gap-1 focus:ring-2 focus:ring-blue-200 transition-all min-w-[60px] max-w-[120px]`}
               style={{ width: 'auto' }}
             >
               <SelectValue placeholder="Select" />
             </SelectTrigger>
-            <SelectContent className="rounded-xl shadow-lg border-0 mt-1 p-1 bg-slate-900 min-w-[70px] w-fit">
+            <SelectContent className="rounded-xl shadow-lg border-0 mt-1 p-1 bg-white min-w-[70px] w-fit">
               {blockType.options.map((opt) => (
-                <SelectItem key={opt} value={opt} className="text-xs rounded-md px-2 py-1 hover:bg-cyan-900 focus:bg-cyan-800 transition-all text-cyan-200">
+                <SelectItem key={opt} value={opt} className="text-xs rounded-md px-2 py-1 hover:bg-blue-50 focus:bg-blue-100 transition-all">
                   {opt}
                 </SelectItem>
               ))}
@@ -218,7 +230,7 @@ function CodeBlock({ block, listeners, isDragging, attributes, onOptionChange, s
         <div className="flex-1" />
         {/* Delete button */}
         <button
-          className="text-red-400 hover:text-red-600 p-1 rounded-full transition-colors duration-150 bg-slate-900/70 hover:bg-red-900 shadow-sm border border-transparent hover:border-red-700"
+          className="text-red-400 hover:text-red-600 p-1 rounded-full transition-colors duration-150 bg-white/70 hover:bg-red-50 shadow-sm border border-transparent hover:border-red-200"
           title="Delete block"
           onClick={e => {
             e.stopPropagation();
@@ -229,7 +241,7 @@ function CodeBlock({ block, listeners, isDragging, attributes, onOptionChange, s
         </button>
         {/* Drag handle */}
         <button
-          className="text-slate-400 hover:text-slate-200 p-1 rounded-full cursor-grab active:cursor-grabbing transition-colors duration-150 bg-slate-900/70 shadow-sm border border-slate-700 ml-2"
+          className="text-gray-400 hover:text-gray-600 p-1 rounded-full cursor-grab active:cursor-grabbing transition-colors duration-150 bg-white/70 shadow-sm border border-gray-200 ml-2"
           title="Drag block"
           {...listeners}
           {...attributes}
@@ -272,10 +284,7 @@ function CodeBlock({ block, listeners, isDragging, attributes, onOptionChange, s
 function ToolbarBlock({ blockType, onDragStart }) {
   return (
     <div
-      className={`flex items-center gap-1 rounded-xl shadow-md px-2 py-1 min-h-[28px] min-w-[60px] cursor-grab select-none transition-all duration-150
-        bg-slate-800 border border-slate-700
-        hover:bg-slate-700
-        ${blockType.type === 'move' ? 'text-cyan-200' : blockType.type === 'turn' ? 'text-blue-200' : 'text-purple-200'}`}
+      className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl shadow-md px-2 py-1 min-h-[28px] min-w-[60px] cursor-grab select-none hover:shadow-lg hover:bg-blue-50 transition-all duration-150"
       draggable
       onDragStart={(e) => onDragStart(e, blockType)}
       style={{ userSelect: "none" }}
@@ -283,7 +292,7 @@ function ToolbarBlock({ blockType, onDragStart }) {
       {blockType.icon}
       <span className={`font-semibold text-xs ${blockType.color}`}>{blockType.label}</span>
       {blockType.options.length > 0 && (
-        <span className="ml-0.5 text-[10px] text-cyan-300 bg-slate-900 rounded px-1 py-0.5">
+        <span className="ml-0.5 text-[10px] text-blue-400 bg-blue-50 rounded px-1 py-0.5">
           {blockType.options[0]}
         </span>
       )}
@@ -372,7 +381,7 @@ function runCommands(commands, gameState, setGameState, step = 0) {
   if (step >= commands.length) return;
   const command = commands[step];
   setGameState(prev => {
-    let { playerPosition, playerDirection, gridSize, collectedGems, gems } = prev;
+    let { playerPosition, playerDirection, gridSize } = prev;
     if (command.type === 'move') {
       let { x, y } = playerPosition;
       if (command.option === 'forward') {
@@ -395,18 +404,6 @@ function runCommands(commands, gameState, setGameState, step = 0) {
       if (command.option === 'up') dir = 0;
       if (command.option === 'down') dir = 2;
       return { ...prev, playerDirection: dir };
-    }
-    if (command.type === 'collect') {
-      // Check if there's a gem at the current position and it's not already collected
-      const gemIndex = gems.findIndex(gem => gem.x === playerPosition.x && gem.y === playerPosition.y);
-      const alreadyCollected = collectedGems.some(gem => gem.x === playerPosition.x && gem.y === playerPosition.y);
-      if (gemIndex !== -1 && !alreadyCollected) {
-        return {
-          ...prev,
-          collectedGems: [...collectedGems, gems[gemIndex]]
-        };
-      }
-      return prev;
     }
     return prev;
   });
@@ -505,11 +502,9 @@ interface CodeBlockEditorProps {
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
   blocks: Block[];
   setBlocks: React.Dispatch<React.SetStateAction<Block[]>>;
-  shadowPath: { x: number; y: number }[];
-  setShadowPath: React.Dispatch<React.SetStateAction<{ x: number; y: number }[]>>;
 }
 
-export default function CodeBlockEditor({ gameState, setGameState, blocks, setBlocks, shadowPath, setShadowPath }: CodeBlockEditorProps) {
+export default function CodeBlockEditor({ gameState, setGameState, blocks, setBlocks }: CodeBlockEditorProps) {
   const [activeId, setActiveId] = useState(null);
   const [draggedToolbarBlock, setDraggedToolbarBlock] = useState(null);
   const [hoveredDropZone, setHoveredDropZone] = useState<string | null>(null); // Track which drop zone is hovered
@@ -522,53 +517,6 @@ export default function CodeBlockEditor({ gameState, setGameState, blocks, setBl
     gameStateRef.current = gameState;
   }, [gameState]);
   // --- End fix ---
-
-  // --- Shadow Path Calculation ---
-  React.useEffect(() => {
-    // Start from initial shadow position and direction
-    let shadowPos = { x: 0, y: 0 };
-    let shadowDir = 0;
-    const path = [{ x: shadowPos.x, y: shadowPos.y }];
-    // Flatten blocks to a list of commands
-    function flatten(blocks) {
-      let cmds = [];
-      for (const block of blocks) {
-        if (block.type === 'move' || block.type === 'turn') {
-          cmds.push({ type: block.type, option: block.option });
-        }
-        if (block.children && block.children.length > 0) {
-          cmds = cmds.concat(flatten(block.children));
-        }
-      }
-      return cmds;
-    }
-    const commands = flatten(blocks);
-    for (const cmd of commands) {
-      if (cmd.type === 'turn') {
-        if (cmd.option === 'right') shadowDir = (shadowDir + 1) % 4;
-        if (cmd.option === 'left') shadowDir = (shadowDir + 3) % 4;
-        if (cmd.option === 'up') shadowDir = 0;
-        if (cmd.option === 'down') shadowDir = 2;
-      }
-      if (cmd.type === 'move') {
-        let { x, y } = shadowPos;
-        if (cmd.option === 'forward') {
-          if (shadowDir === 0 && y > 0) y -= 1;
-          if (shadowDir === 1 && x < (gameState.gridSize - 1)) x += 1;
-          if (shadowDir === 2 && y < (gameState.gridSize - 1)) y += 1;
-          if (shadowDir === 3 && x > 0) x -= 1;
-        } else if (cmd.option === 'backward') {
-          if (shadowDir === 0 && y < (gameState.gridSize - 1)) y += 1;
-          if (shadowDir === 1 && x > 0) x -= 1;
-          if (shadowDir === 2 && y > 0) y -= 1;
-          if (shadowDir === 3 && x < (gameState.gridSize - 1)) x += 1;
-        }
-        shadowPos = { x, y };
-        path.push({ x, y });
-      }
-    }
-    setShadowPath(path);
-  }, [blocks, gameState.gridSize, setShadowPath]);
 
   // Handle drag from toolbar
   const handleToolbarDragStart = (e, blockType) => {
@@ -630,15 +578,28 @@ export default function CodeBlockEditor({ gameState, setGameState, blocks, setBl
   };
 
   return (
-    <div className="min-h-[700px] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-slate-100">
-      {/* Editor above toolbar */}
-      <ScrollArea className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 border border-slate-800 rounded-2xl p-4 shadow-2xl max-w-4xl w-full mx-auto h-[500px] flex-1">
+    <div>
+      {/* Toolbar at the top */}
+      <div className="flex flex-col items-start max-w-4xl w-full mx-auto mt-4 mb-3">
+        <div className="text-sm font-semibold text-gray-700 mb-1 ml-2">Blocks</div>
+        <div className="flex flex-row gap-1 w-full bg-gradient-to-r from-blue-50 via-white to-purple-50 border border-gray-200 rounded-2xl p-2 shadow-lg">
+          {blockTypes.map((blockType) => (
+            <ToolbarBlock
+              key={blockType.type}
+              blockType={blockType}
+              onDragStart={handleToolbarDragStart}
+            />
+          ))}
+        </div>
+      </div>
+      {/* Editor below toolbar */}
+      <ScrollArea className="bg-gradient-to-br from-white via-blue-50 to-purple-50 border border-gray-200 rounded-2xl p-4 shadow-xl max-w-4xl w-full mx-auto h-[500px] flex-1">
         <div className="flex flex-col h-full">
           <div className="flex items-center mb-4">
-            <span className="text-lg font-bold text-cyan-300">Your Program</span>
+            <span className="text-lg font-bold text-blue-700">Your Program</span>
             <div className="flex-1" />
             <button
-              className="px-4 py-2 rounded-lg bg-cyan-700 text-white font-semibold hover:bg-cyan-600 transition shadow"
+              className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition shadow"
               onClick={handleRun}
             >
               Run
@@ -682,7 +643,7 @@ export default function CodeBlockEditor({ gameState, setGameState, blocks, setBl
               ))}
             </SortableContext>
             <div
-              className="h-14 border-2 border-dashed border-cyan-700 rounded-xl flex items-center justify-center mt-6 text-cyan-300 text-base cursor-pointer bg-slate-900/80 hover:bg-slate-800 transition-all shadow-inner"
+              className="h-14 border-2 border-dashed border-blue-300 rounded-xl flex items-center justify-center mt-6 text-blue-400 text-base cursor-pointer bg-blue-50/40 hover:bg-blue-100 transition-all shadow-inner"
               onDragOver={(e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "copy";
@@ -690,7 +651,7 @@ export default function CodeBlockEditor({ gameState, setGameState, blocks, setBl
               onDrop={handleDropFromToolbar}
             >
               <span className="flex items-center gap-2">
-                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" className="text-cyan-400"><rect x="3" y="3" width="14" height="14" rx="3"/></svg>
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400"><rect x="3" y="3" width="14" height="14" rx="3"/></svg>
                 Drop here to add new block
               </span>
             </div>
@@ -721,19 +682,6 @@ export default function CodeBlockEditor({ gameState, setGameState, blocks, setBl
           </DndContext>
         </div>
       </ScrollArea>
-      {/* Toolbar at the bottom, styled as a sticky card */}
-      <div className="sticky bottom-0 z-10 flex flex-col items-start max-w-4xl w-full mx-auto mt-4 mb-3 bg-slate-900/95 border border-cyan-900 rounded-2xl p-4 shadow-cyan-900/30 shadow-2xl backdrop-blur-md">
-        <div className="text-sm font-semibold text-cyan-300 mb-2 ml-1">Blocks</div>
-        <div className="flex flex-row gap-2 w-full">
-          {blockTypes.map((blockType) => (
-            <ToolbarBlock
-              key={blockType.type}
-              blockType={blockType}
-              onDragStart={handleToolbarDragStart}
-            />
-          ))}
-        </div>
-      </div>
     </div>
   );
 } 

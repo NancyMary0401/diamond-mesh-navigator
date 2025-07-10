@@ -69,10 +69,10 @@ interface ChatComponentProps {
   floating?: boolean; // render as floating window if true
   gameState: any;
   setGameState: (fn: (prev: any) => any) => void;
-  setBlocks: (fn: (prev: any) => any) => void;
+  addMoveForwardBlock?: () => void;
 }
 
-const ChatComponent: React.FC<ChatComponentProps> = ({ floating = true, gameState, setGameState, setBlocks }) => {
+const ChatComponent: React.FC<ChatComponentProps> = ({ floating = true, gameState, setGameState, addMoveForwardBlock }) => {
   // position for draggable window when floating
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragStart = useRef<{ x: number; y: number } | null>(null);
@@ -151,22 +151,9 @@ const ChatComponent: React.FC<ChatComponentProps> = ({ floating = true, gameStat
               if (shadowDirection === 2 && shadowPosition.y > 0) newPosition.y -= 1;
               if (shadowDirection === 3 && shadowPosition.x < gridSize - 1) newPosition.x += 1;
             }
-            const moved = newPosition.x !== shadowPosition.x || newPosition.y !== shadowPosition.y || newDirection !== shadowDirection;
-            if (moved) {
-              // Add code block to editor
-              setBlocks((prev: any) => {
-                let type = 'move';
-                let option = '';
-                if (direction === 'front') option = 'forward';
-                else if (direction === 'back') option = 'backward';
-                else if (direction === 'left') { type = 'turn'; option = 'left'; }
-                else if (direction === 'right') { type = 'turn'; option = 'right'; }
-                const id = `block-chat-${Date.now()}-${Math.floor(Math.random()*10000)}`;
-                return [
-                  ...prev,
-                  { id, type, option, children: [] }
-                ];
-              });
+            // Call addMoveForwardBlock if moving forward
+            if (direction === 'front' && addMoveForwardBlock) {
+              addMoveForwardBlock();
             }
             return {
               ...prev,
