@@ -12,6 +12,7 @@ export interface GameState {
   gridSize: number;
   shadowPosition: Position;
   shadowDirection: number;
+  obstacles?: Position[];
 }
 
 export interface Command {

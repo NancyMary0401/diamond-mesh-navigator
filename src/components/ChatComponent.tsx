@@ -16,51 +16,48 @@ async function fetchGeminiResponse(prompt: string): Promise<string> {
   if (!genAIInstance) return 'Gemini API key missing.';
   try {
     const model = genAIInstance.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const promptWithSchema = `You are a multilingual direction-classifier.\n\nTask: Detect whether the USER\'s message (which can be in **any language or contain synonyms**) refers to one of the four cardinal directions:\n  • front\n  • back\n  • right\n  • left\nIf no clear reference is found, classify as **unknown**.\n\nGuidelines:\n1. First translate or interpret the message into English if necessary (Gemini can auto-detect language).\n2. Consider common synonyms and translations, e.g. Tamil: munale → front, pinnadi → back, idathu → left, valathu → right. You do NOT need to list these in the reply; they are examples to aid reasoning.\n3. Only output a single line of **valid JSON** with the exact schema:\n   {\"direction\":\"<front|back|right|left|unknown>\"}\n\nMessage: \"${prompt}\"`;
+    
+    const promptText = `You are a multilingual direction-classifier.
 
-    console.log('Gemini prompt:', promptWithSchema);
-    const result = await model.generateContent(promptWithSchema);
+Task: Detect whether the USER's message refers to one of the four cardinal directions: front, back, right, left. If no clear reference is found, classify as unknown.
+
+Return ONLY a valid JSON object with this exact format:
+{"direction":"front|back|left|right|unknown"}
+
+Message: "${prompt}"`;
+
+    const result = await model.generateContent(promptText);
     const text = result.response.text().trim();
-
-    // Attempt to extract JSON from the Gemini reply which might be wrapped in a markdown block
-    let jsonPart: string | null = null;
-    // First try direct parse
-    try {
-      const direct = JSON.parse(text);
-      jsonPart = JSON.stringify(direct);
-    } catch (_) {
-      // Fallback: extract first {...} block using regex
-      const match = text.match(/\{[\s\S]*?\}/);
-      if (match) jsonPart = match[0];
-    }
-
-    if (jsonPart) {
+    
+    // Extract JSON from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
       try {
-        const obj = JSON.parse(jsonPart);
-        if (obj && typeof obj.direction === 'string') {
-          const dir = obj.direction.toLowerCase();
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed && typeof parsed.direction === 'string') {
+          const dir = parsed.direction.toLowerCase();
           switch (dir) {
             case 'front':
               return 'The character is moving forward.';
             case 'back':
               return 'The character is moving back.';
             case 'left':
-              return 'The character moved left.';
+              return 'The character turned left.';
             case 'right':
-              return 'The character moved right.';
+              return 'The character turned right.';
             case 'unknown':
             default:
               return 'Provide a proper direction.';
           }
         }
-      } catch (_) {
-        // fall through to return raw text below
+      } catch (parseError) {
+        console.error('Failed to parse JSON response:', parseError);
       }
     }
 
-    return text;
+    return 'Please provide a clear direction command.';
   } catch (err) {
-    console.error('Gemini error', err);
+    console.error('Gemini API error:', err);
     return 'Error contacting Gemini.';
   }
 }
@@ -70,9 +67,13 @@ interface ChatComponentProps {
   gameState: any;
   setGameState: (fn: (prev: any) => any) => void;
   addMoveForwardBlock?: () => void;
+  addMoveBackwardBlock?: () => void;
+  addTurnLeftBlock?: () => void;
+  addTurnRightBlock?: () => void;
+  addJumpBlock?: () => void;
 }
 
-const ChatComponent: React.FC<ChatComponentProps> = ({ floating = true, gameState, setGameState, addMoveForwardBlock }) => {
+const ChatComponent: React.FC<ChatComponentProps> = ({ floating = true, gameState, setGameState, addMoveForwardBlock, addMoveBackwardBlock, addTurnLeftBlock, addTurnRightBlock, addJumpBlock }) => {
   // position for draggable window when floating
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragStart = useRef<{ x: number; y: number } | null>(null);
@@ -99,6 +100,7 @@ const ChatComponent: React.FC<ChatComponentProps> = ({ floating = true, gameStat
   };
 
   const [messages, setMessages] = useState<Message[]>([
+    { sender: 'bot', text: 'Type here to control your character! For example, say "move forward" or "turn left".' },
     { sender: 'bot', text: 'Welcome to the chat!' }
   ]);
   const [input, setInput] = useState('');
@@ -131,6 +133,7 @@ const ChatComponent: React.FC<ChatComponentProps> = ({ floating = true, gameStat
         else if (botReply.includes('back')) direction = 'back';
         else if (botReply.includes('left')) direction = 'left';
         else if (botReply.includes('right')) direction = 'right';
+        else if (botReply.toLowerCase().includes('jump')) direction = 'jump';
         if (direction) {
           setGameState((prev: any) => {
             let { shadowPosition, shadowDirection, gridSize } = prev;
@@ -150,10 +153,12 @@ const ChatComponent: React.FC<ChatComponentProps> = ({ floating = true, gameStat
               if (shadowDirection === 1 && shadowPosition.x > 0) newPosition.x -= 1;
               if (shadowDirection === 2 && shadowPosition.y > 0) newPosition.y -= 1;
               if (shadowDirection === 3 && shadowPosition.x < gridSize - 1) newPosition.x += 1;
-            }
-            // Call addMoveForwardBlock if moving forward
-            if (direction === 'front' && addMoveForwardBlock) {
-              addMoveForwardBlock();
+            } else if (direction === 'jump') {
+              // Example: jump two cells forward if possible
+              if (shadowDirection === 0 && shadowPosition.y > 1) newPosition.y -= 2;
+              if (shadowDirection === 1 && shadowPosition.x < gridSize - 2) newPosition.x += 2;
+              if (shadowDirection === 2 && shadowPosition.y < gridSize - 2) newPosition.y += 2;
+              if (shadowDirection === 3 && shadowPosition.x > 1) newPosition.x -= 2;
             }
             return {
               ...prev,
@@ -161,6 +166,18 @@ const ChatComponent: React.FC<ChatComponentProps> = ({ floating = true, gameStat
               shadowDirection: newDirection,
             };
           });
+          // Add corresponding block to CodeBlockEditor
+          if (direction === 'front' && addMoveForwardBlock) {
+            addMoveForwardBlock();
+          } else if (direction === 'back' && addMoveBackwardBlock) {
+            addMoveBackwardBlock();
+          } else if (direction === 'left' && addTurnLeftBlock) {
+            addTurnLeftBlock();
+          } else if (direction === 'right' && addTurnRightBlock) {
+            addTurnRightBlock();
+          } else if (direction === 'jump' && addJumpBlock) {
+            addJumpBlock();
+          }
         }
       }
     })();
@@ -169,39 +186,36 @@ const ChatComponent: React.FC<ChatComponentProps> = ({ floating = true, gameStat
   return (
     <div
       style={floating ? { transform: `translate3d(${pos.x}px, ${pos.y}px,0)` } : undefined}
-      className={`${floating ? 'fixed top-6 right-6 z-50 w-80 h-64' : 'mt-8 w-full max-w-lg'} p-3 bg-slate-800/50 backdrop-blur-md rounded-2xl shadow-xl border border-slate-700/40 flex flex-col`}>
-      
-      <div onPointerDown={floating ? startDrag : undefined} className="cursor-move select-none mb-3">
-        <h2 className="text-lg font-semibold text-white">Chat</h2>
-      </div>
-
-      <div className="flex-1 overflow-y-auto bg-slate-900/50 p-3 rounded-md text-sm mb-4 space-y-2">
+      className={`w-full h-full flex flex-col bg-slate-950/90 rounded-2xl border-2 border-blue-700/60 shadow-[0_0_32px_0_rgba(56,189,248,0.15)] overflow-hidden ${floating ? 'fixed top-6 right-6 z-50 max-w-md max-h-[90vh]' : ''}`}
+    >
+      {/* Chat area */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
         {messages.map((msg, idx) => (
           <div
             key={idx}
-            className={`max-w-[80%] px-3 py-2 rounded-lg ${
-              msg.sender === 'user'
-                ? 'ml-auto bg-purple-600 text-white'
-                : 'mr-auto bg-slate-700 text-slate-100'
-            }`}
+            className={`max-w-[80%] px-4 py-2 rounded-2xl shadow-md transition-all
+              ${msg.sender === 'user'
+                ? 'ml-auto bg-blue-700/80 text-white border-2 border-blue-400/60 drop-shadow-glow'
+                : 'mr-auto bg-slate-800/80 text-blue-100 border border-blue-700/30'}
+            `}
           >
             {msg.text}
           </div>
         ))}
         <div ref={messagesEndRef} />
       </div>
-
-      <form onSubmit={handleSend} className="flex gap-2">
+      {/* Input area */}
+      <form onSubmit={handleSend} className="flex gap-2 p-4 border-t border-blue-800/30 bg-slate-900/80 sticky bottom-0">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type your message..."
-          className="flex-1 p-2 rounded-md bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="flex-1 p-3 rounded-xl bg-slate-800 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-blue-700/40 shadow-inner transition-all"
         />
         <button
           type="submit"
-          className="px-4 py-2 rounded-md bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors"
+          className="px-5 py-2 rounded-xl bg-blue-700 text-white font-bold shadow-lg hover:bg-blue-600 focus:ring-2 focus:ring-blue-400 border-2 border-blue-400/60 transition-all"
         >
           Send
         </button>
